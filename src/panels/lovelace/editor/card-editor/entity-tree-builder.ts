@@ -5,7 +5,7 @@ import {
 } from "@mdi/js";
 import type { FuseIndex } from "fuse.js";
 import Fuse from "fuse.js";
-import { mdiAbedome } from "../../../resources/abedome-logo-svg";
+import { mdiAbedome } from "../../../../resources/abedome-logo-svg";
 import { getAreasFloorHierarchy } from "../../../../common/areas/areas-floor-hierarchy";
 import { computeAreaName } from "../../../../common/entity/compute_area_name";
 import { computeDeviceName } from "../../../../common/entity/compute_device_name";
