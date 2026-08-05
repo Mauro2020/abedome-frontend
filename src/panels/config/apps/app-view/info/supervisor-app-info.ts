@@ -94,7 +94,7 @@ import {
 } from "../../../../../dialogs/generic/show-dialog-box";
 import { showMoreInfoDialog } from "../../../../../dialogs/more-info/show-ha-more-info-dialog";
 import { MobileAwareMixin } from "../../../../../mixins/mobile-aware-mixin";
-import { mdiHomeAssistant } from "../../../../../resources/home-assistant-logo-svg";
+import { mdiAbedome } from "../../../../../resources/abedome-logo-svg";
 import { haStyle } from "../../../../../resources/styles";
 import type { HomeAssistantRegistries, Route } from "../../../../../types";
 import { bytesToString } from "../../../../../util/bytes-to-string";
@@ -377,7 +377,7 @@ class SupervisorAppInfo extends MobileAwareMixin(LitElement) {
                   >
                     <ha-svg-icon
                       slot="icon"
-                      .path=${mdiHomeAssistant}
+                      .path=${mdiAbedome}
                     ></ha-svg-icon>
                   </ha-assist-chip>
                 `
@@ -398,7 +398,7 @@ class SupervisorAppInfo extends MobileAwareMixin(LitElement) {
                   >
                     <ha-svg-icon
                       slot="icon"
-                      .path=${mdiHomeAssistant}
+                      .path=${mdiAbedome}
                     ></ha-svg-icon>
                   </ha-assist-chip>
                 `
@@ -531,7 +531,7 @@ class SupervisorAppInfo extends MobileAwareMixin(LitElement) {
                   >
                     <ha-svg-icon
                       slot="icon"
-                      .path=${mdiHomeAssistant}
+                      .path=${mdiAbedome}
                     ></ha-svg-icon>
                   </ha-assist-chip>
                 `

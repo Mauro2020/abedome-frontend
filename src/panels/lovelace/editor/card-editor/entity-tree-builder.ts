@@ -1,11 +1,11 @@
 import {
-  mdiHomeAssistant,
   mdiPuzzle,
   mdiShape,
   mdiToggleSwitch,
 } from "@mdi/js";
 import type { FuseIndex } from "fuse.js";
 import Fuse from "fuse.js";
+import { mdiAbedome } from "../../../resources/abedome-logo-svg";
 import { getAreasFloorHierarchy } from "../../../../common/areas/areas-floor-hierarchy";
 import { computeAreaName } from "../../../../common/entity/compute_area_name";
 import { computeDeviceName } from "../../../../common/entity/compute_device_name";
@@ -298,7 +298,7 @@ export function buildEntityTree(input: BuildEntityTreeInput): EntityTree {
   if (orphanServices.length) {
     unassignedSections.push({
       id: "services",
-      iconPath: mdiHomeAssistant,
+      iconPath: mdiAbedome,
       label: localize("ui.panel.lovelace.editor.cardpicker.services"),
       devices: orphanServices,
     });

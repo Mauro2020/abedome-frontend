@@ -29,27 +29,10 @@ class DialogCommunity extends DialogMixin<CommunityDialogParams>(LitElement) {
           <img
             src="/static/icons/favicon-192x192.png"
             slot="start"
-            alt="Home Assistant Logo"
+            alt="ABEDOME logo"
           />
           <span slot="headline">
             ${this.params.localize("ui.panel.page-onboarding.welcome.forums")}
-          </span>
-          <ha-svg-icon slot="end" .path=${mdiOpenInNew}></ha-svg-icon>
-        </ha-list-item-button>
-        <ha-list-item-button
-          target="_blank"
-          rel="noreferrer noopener"
-          href="https://newsletter.openhomefoundation.org/"
-        >
-          <img
-            src="/static/icons/logo_ohf.svg"
-            slot="start"
-            alt="Open Home Foundation Logo"
-          />
-          <span slot="headline">
-            ${this.params.localize(
-              "ui.panel.page-onboarding.welcome.open_home_newsletter"
-            )}
           </span>
           <ha-svg-icon slot="end" .path=${mdiOpenInNew}></ha-svg-icon>
         </ha-list-item-button>

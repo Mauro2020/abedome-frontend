@@ -26,7 +26,7 @@ import type { LogProvider } from "../../../data/error_log";
 import { fetchHassioAddonsInfo } from "../../../data/hassio/addon";
 import { showAlertDialog } from "../../../dialogs/generic/show-dialog-box";
 import "../../../layouts/hass-subpage";
-import { mdiHomeAssistant } from "../../../resources/home-assistant-logo-svg";
+import { mdiAbedome } from "../../../resources/abedome-logo-svg";
 import { haStyle } from "../../../resources/styles";
 import type { HomeAssistant, Route, ValueChangedEvent } from "../../../types";
 import "./error-log-card";
@@ -324,7 +324,7 @@ export class HaConfigLogs extends LitElement {
   private _getProviderIconPath(providerKey: string): string | undefined {
     switch (providerKey) {
       case "core":
-        return mdiHomeAssistant;
+        return mdiAbedome;
       case "supervisor":
         return mdiPackageVariant;
       case "host":

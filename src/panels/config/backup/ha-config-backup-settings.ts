@@ -1,4 +1,9 @@
-import { mdiDotsVertical, mdiHarddisk, mdiOpenInNew } from "@mdi/js";
+import {
+  mdiCloudOutline,
+  mdiDotsVertical,
+  mdiHarddisk,
+  mdiOpenInNew,
+} from "@mdi/js";
 import type { PropertyValues } from "lit";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators";
@@ -25,7 +30,6 @@ import {
 } from "../../../data/supervisor/update";
 import "../../../layouts/hass-subpage";
 import type { HomeAssistant } from "../../../types";
-import { brandsUrl } from "../../../util/brands-url";
 import { documentationUrl } from "../../../util/documentation-url";
 import "./components/config/ha-backup-config-agents";
 import "./components/config/ha-backup-config-data";
@@ -249,20 +253,11 @@ class HaConfigBackupSettings extends LitElement {
               isComponentLoaded(this.hass.config, "cloud")
                 ? html`<ha-card class="cloud-info">
                     <div class="cloud-header">
-                      <img
-                        .src=${brandsUrl(
-                          {
-                            domain: "cloud",
-                            type: "icon",
-                            darkOptimized: this.hass.themes?.darkMode,
-                          },
-                          this.hass.auth.data.hassUrl
-                        )}
-                        crossorigin="anonymous"
-                        referrerpolicy="no-referrer"
-                        alt="Nabu Casa logo"
+                      <ha-svg-icon
+                        .path=${mdiCloudOutline}
+                        aria-label="Cloud"
                         slot="start"
-                      />
+                      ></ha-svg-icon>
                       <span
                         >${this.hass.localize(
                           "ui.panel.config.backup.settings.locations.ha_cloud_backup",
@@ -477,8 +472,13 @@ class HaConfigBackupSettings extends LitElement {
       align-items: center;
       padding: 16px;
     }
-    .cloud-info .cloud-header img {
-      width: 48px;
+    .cloud-info .cloud-header ha-svg-icon {
+      color: #f5f1e8;
+      background: #0b0b0a;
+      border-radius: var(--ha-border-radius-circle);
+      padding: 8px;
+      width: 32px;
+      height: 32px;
     }
     .cloud-info .card-content {
       padding-bottom: 16px;

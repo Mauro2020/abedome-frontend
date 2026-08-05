@@ -1,3 +1,4 @@
+import { mdiCloudOutline } from "@mdi/js";
 import { LitElement, css, html } from "lit";
 import { customElement, property, query, state } from "lit/decorators";
 import { fireEvent } from "../../../common/dom/fire_event";
@@ -34,10 +35,9 @@ export class CloudStepSignup extends LitElement {
 
   render() {
     return html`<div class="content">
-        <img
-          src=${`/static/images/logo_nabu_casa${this.hass.themes?.darkMode ? "_dark" : ""}.png`}
-          alt="Nabu Casa logo"
-        />
+        <div class="cloud-brand-mark" role="img" aria-label="Cloud">
+          <ha-svg-icon .path=${mdiCloudOutline}></ha-svg-icon>
+        </div>
         <h1>
           ${this.hass.localize("ui.panel.config.cloud.register.create_account")}
         </h1>
@@ -223,6 +223,21 @@ export class CloudStepSignup extends LitElement {
     css`
       .content {
         width: 100%;
+      }
+      .cloud-brand-mark {
+        align-items: center;
+        background: #0b0b0a;
+        border-radius: var(--ha-border-radius-circle);
+        color: #f5f1e8;
+        display: flex;
+        height: 64px;
+        justify-content: center;
+        margin: 0 auto var(--ha-space-4);
+        width: 64px;
+      }
+      .cloud-brand-mark ha-svg-icon {
+        height: 32px;
+        width: 32px;
       }
     `,
   ];

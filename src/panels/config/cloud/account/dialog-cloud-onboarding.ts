@@ -18,7 +18,7 @@ import "../../../../components/ha-button";
 import "../../../../components/ha-dialog";
 import "../../../../components/ha-dialog-footer";
 import "../../../../components/ha-expansion-panel";
-import "../../../../components/ha-logo-svg";
+import "../../../../components/abedome-logo-svg";
 import "../../../../components/ha-svg-icon";
 import type { BackupConfig } from "../../../../data/backup";
 import {
@@ -356,7 +356,7 @@ export class DialogCloudOnboarding extends LitElement {
       <div class="option-card">
         <div class="option-head">
           <div class="option-icon cloud">
-            <ha-logo-svg></ha-logo-svg>
+            <abedome-logo-svg></abedome-logo-svg>
           </div>
           <div class="option-heading">
             <span class="option-title"

@@ -27,7 +27,7 @@ import { computeDomain } from "../common/entity/compute_domain";
 import { transform } from "../common/decorators/transform";
 import { configContext, connectionContext } from "../data/context";
 import { FALLBACK_DOMAIN_ICONS, triggerIcon } from "../data/icons";
-import { mdiHomeAssistant } from "../resources/home-assistant-logo-svg";
+import { mdiAbedome } from "../resources/abedome-logo-svg";
 import "./ha-icon";
 import "./ha-svg-icon";
 
@@ -37,7 +37,7 @@ export const TRIGGER_ICONS = {
   event: mdiGestureDoubleTap,
   state: mdiStateMachine,
   geo_location: mdiMapMarker,
-  homeassistant: mdiHomeAssistant,
+  homeassistant: mdiAbedome,
   mqtt: mdiSwapHorizontal,
   numeric_state: mdiNumeric,
   sun: mdiWeatherSunny,

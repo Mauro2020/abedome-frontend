@@ -1,19 +1,17 @@
 import {
   mdiBug,
   mdiFileDocument,
-  mdiHandsPray,
   mdiHelp,
   mdiKeyboard,
   mdiNewspaperVariant,
   mdiOpenInNew,
-  mdiTshirtCrew,
 } from "@mdi/js";
 import type { CSSResultGroup, TemplateResult, PropertyValues } from "lit";
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import { isComponentLoaded } from "../../../common/config/is_component_loaded";
+import "../../../components/abedome-logo-svg";
 import "../../../components/ha-card";
-import "../../../components/ha-logo-svg";
 import "../../../components/ha-svg-icon";
 import "../../../components/item/ha-list-item-button";
 import "../../../components/list/ha-list-base";
@@ -25,7 +23,7 @@ import { subscribeSystemHealthInfo } from "../../../data/system_health";
 import { showShortcutsDialog } from "../../../dialogs/shortcuts/show-shortcuts-dialog";
 import "../../../layouts/hass-subpage";
 import { panelIsReady } from "../../../layouts/panel-ready";
-import { mdiHomeAssistant } from "../../../resources/home-assistant-logo-svg";
+import { mdiAbedome } from "../../../resources/abedome-logo-svg";
 import { haStyle } from "../../../resources/styles";
 import type { HomeAssistant, Route } from "../../../types";
 import { documentationUrl } from "../../../util/documentation-url";
@@ -41,21 +39,9 @@ const PAGES = [
     iconColor: "#4A5963",
   },
   {
-    name: "thanks",
-    path: "/developers/credits/",
-    iconPath: mdiHandsPray,
-    iconColor: "#3B808E",
-  },
-  {
-    name: "merch",
-    path: "/merch",
-    iconPath: mdiTshirtCrew,
-    iconColor: "#C65326",
-  },
-  {
     name: "feature",
     path: "/feature-requests",
-    iconPath: mdiHomeAssistant,
+    iconPath: mdiAbedome,
     iconColor: "#0D47A1",
   },
   {
@@ -83,6 +69,19 @@ const PAGES = [
   iconColor: string;
 }[];
 
+const BRAND_NOTICE = {
+  en: [
+    "ABEDOME is independent software developed as a modified fork of Home Assistant.",
+    "ABEDOME is not affiliated with, associated with, authorized by, or otherwise officially connected with Nabu Casa or Home Assistant.",
+    '“Home Assistant” is used solely to describe the origin of the software.',
+  ],
+  it: [
+    "ABEDOME è un software indipendente, sviluppato come fork modificato di Home Assistant.",
+    "ABEDOME non è affiliato, associato, autorizzato né ufficialmente connesso a Nabu Casa o al progetto Home Assistant.",
+    "“Home Assistant” è utilizzato esclusivamente per descrivere l’origine del software.",
+  ],
+} as const;
+
 @customElement("ha-config-info")
 class HaConfigInfo extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
@@ -104,7 +103,9 @@ class HaConfigInfo extends LitElement {
     const customUiList: { name: string; url: string; version: string }[] =
       (window as any).CUSTOM_UI_LIST || [];
 
-    const isDark = this.hass.themes?.darkMode || false;
+    const brandNotice = this.hass.language.startsWith("it")
+      ? BRAND_NOTICE.it
+      : BRAND_NOTICE.en;
 
     return html`
       <hass-subpage
@@ -115,19 +116,8 @@ class HaConfigInfo extends LitElement {
       >
         <div class="content">
           <ha-card outlined class="header">
-            <a
-              href=${documentationUrl(this.hass, "")}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <ha-logo-svg
-                title=${this.hass.localize(
-                  "ui.panel.config.info.home_assistant_logo"
-                )}
-              >
-              </ha-logo-svg>
-            </a>
-            <p>Home Assistant</p>
+            <abedome-logo-svg title="ABEDOME"></abedome-logo-svg>
+            <p>ABEDOME</p>
             <ul class="versions">
               <li>
                 <span class="version-label"
@@ -191,17 +181,8 @@ class HaConfigInfo extends LitElement {
               }
             </ul>
           </ha-card>
-          <ha-card outlined class="ohf ${isDark ? "dark" : ""}">
-            <div>
-              ${this.hass.localize("ui.panel.config.info.proud_part_of")}
-            </div>
-            <a
-              href="https://www.openhomefoundation.org"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <img src="/static/icons/ohf.svg" alt="Open Home Foundation" />
-            </a>
+          <ha-card outlined class="legal-notice">
+            ${brandNotice.map((paragraph) => html`<p>${paragraph}</p>`)}
           </ha-card>
 
           <ha-card outlined class="pages">
@@ -320,7 +301,7 @@ class HaConfigInfo extends LitElement {
           margin: 0 auto;
         }
 
-        ha-logo-svg {
+        abedome-logo-svg {
           height: 56px;
           width: 56px;
         }
@@ -348,18 +329,17 @@ class HaConfigInfo extends LitElement {
           margin: 24px;
         }
 
-        .ohf {
-          text-align: center;
-          padding-bottom: 5px;
+        .legal-notice {
+          color: var(--secondary-text-color);
+          line-height: var(--ha-line-height-normal);
         }
 
-        .ohf img {
-          width: 100%;
-          max-width: 250px;
+        .legal-notice p {
+          margin: 0 0 12px;
         }
 
-        .ohf.dark img {
-          color-scheme: dark;
+        .legal-notice p:last-child {
+          margin-bottom: 0;
         }
 
         .versions {
