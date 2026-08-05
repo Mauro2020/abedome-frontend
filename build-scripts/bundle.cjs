@@ -8,7 +8,7 @@ const BABEL_PLUGINS = path.join(__dirname, "babel-plugins");
 // GitHub base URL to use for production source maps
 // Nightly builds use the commit SHA, otherwise assumes there is a tag that matches the version
 module.exports.sourceMapURL = () => {
-  const ref = env.version().endsWith("dev")
+  const ref = env.isDevVersion()
     ? process.env.GITHUB_SHA || "dev"
     : env.version();
   return `https://raw.githubusercontent.com/home-assistant/frontend/${ref}/`;
