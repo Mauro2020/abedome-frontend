@@ -16,9 +16,10 @@
     }
   },
   "assets": {
-    "canonical_kit": "ABEDOME Brand Asset Kit",
-    "status": "not-yet-imported",
+    "canonical_kit": "ABEDOME Brand Asset Kit (rebuilt PNG masters)",
+    "status": "web-shell-icons-imported",
     "intended_repository_directory": "brand/assets",
+    "import_scope": "PWA, browser and launch-screen icons only; no Home Assistant runtime identifiers are changed.",
     "wordmark_dark": "png/logo/logo-horizontal-dark-2400.png",
     "wordmark_light": "png/logo/logo-horizontal-light-2400.png",
     "symbol_dark": "png/logo/symbol-dark-2048.png",
