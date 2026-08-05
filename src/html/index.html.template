@@ -1,21 +1,19 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Home Assistant</title>
+    <title>ABEDOME</title>
     <% if (useCacheRecovery) { %><%= renderTemplate("_bootstrap_recovery.html.template") %><% } %>
     <%= renderTemplate("_header.html.template") %>
-    <link rel="mask-icon" href="/static/icons/mask-icon.svg" color="#18bcf2" />
     <link
       rel="apple-touch-icon"
       href="/static/icons/favicon-apple-180x180.png"
     />
-    <meta name="apple-itunes-app" content="app-id=1099568401" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Home Assistant">
+    <meta name="apple-mobile-web-app-title" content="ABEDOME">
     <meta name="msapplication-config" content="/static/icons/browserconfig.xml" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="application-name" content="Home Assistant">
+    <meta name="application-name" content="ABEDOME">
     <meta name="referrer" content="same-origin" />
     <meta name="theme-color" content="{{ theme_color }}" />
     <meta name="color-scheme" content="dark light" />
@@ -129,7 +127,7 @@
     <div id="ha-launch-screen">
       <div class="ha-launch-screen-spacer-top"></div>
       <div class="ha-lockup">
-        <img class="ha-logo" src="/static/images/home-assistant-logo-loading.svg" alt="Home Assistant">
+        <img class="ha-logo" src="/static/icons/favicon-512x512.png" alt="ABEDOME">
       </div>
       <div id="ha-launch-screen-info-box" class="ha-launch-screen-spacer-bottom"></div>
       <div class="ohf-logo">

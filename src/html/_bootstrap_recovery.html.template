@@ -39,7 +39,7 @@
       var box = document.getElementById("ha-launch-screen-info-box");
       if (box) {
         box.textContent =
-          "Could not load Home Assistant. Please refresh the page, and clear your browser cache if the problem persists.";
+          "Could not load ABEDOME. Please refresh the page, and clear your browser cache if the problem persists.";
       }
     }
 
