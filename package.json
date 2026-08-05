@@ -1,10 +1,10 @@
 {
-  "description": "A frontend for Home Assistant",
+  "description": "The ABEDOME web frontend",
   "repository": {
     "type": "git",
-    "url": "https://github.com/home-assistant/frontend"
+    "url": "https://github.com/Mauro2020/abedome-frontend"
   },
-  "name": "home-assistant-frontend",
+  "name": "abedome-frontend",
   "version": "1.0.0",
   "scripts": {
     "build": "node build-scripts/build-manager.mjs",
@@ -35,7 +35,7 @@
     "test:e2e:app:dev": "test/e2e/app/script/develop_app",
     "test:e2e:gallery": "playwright test --config test/e2e/playwright.gallery.config.ts"
   },
-  "author": "Paulus Schoutsen <Paulus@PaulusSchoutsen.nl> (http://paulusschoutsen.nl)",
+  "author": "ABEDOME Contributors",
   "license": "Apache-2.0",
   "type": "module",
   "dependencies": {
