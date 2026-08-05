@@ -1,0 +1,51 @@
+name: Build ABEDOME Frontend
+run-name: "ABEDOME Frontend: ${{ github.ref_name }}"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - abedome/develop
+    paths:
+      - ".github/workflows/build-abedome-frontend.yml"
+      - "src/html/**"
+      - "public/static/icons/**"
+      - "build-scripts/**"
+      - "package.json"
+      - "yarn.lock"
+      - ".yarnrc.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compile the ABEDOME web shell
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out ABEDOME Frontend
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node and dependencies
+        uses: ./.github/actions/setup
+
+      - name: Compile the production frontend
+        uses: ./.github/actions/build
+        with:
+          target: build-app
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Retain the compiled frontend
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: abedome-frontend
+          path: hass_frontend/
+          if-no-files-found: error
+          retention-days: 7
