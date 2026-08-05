@@ -1,0 +1,117 @@
+name: Publish ABEDOME Frontend package
+run-name: "ABEDOME Frontend package: ${{ github.ref_name }}"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - abedome/develop
+    paths:
+      - ".github/workflows/publish-abedome-frontend-package.yml"
+      - "build-scripts/**"
+      - "public/**"
+      - "src/**"
+      - "script/build_frontend"
+      - "package.json"
+      - "pyproject.toml"
+      - "MANIFEST.in"
+      - "yarn.lock"
+      - ".yarnrc.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.14"
+  NODE_OPTIONS: --max_old_space_size=6144
+
+jobs:
+  package:
+    name: Build and verify the ABEDOME frontend package
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out ABEDOME Frontend
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Set up Node and dependencies
+        uses: ./.github/actions/setup
+
+      - name: Compile the production frontend
+        uses: ./.github/actions/build
+        with:
+          target: build-app
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the ABEDOME Python package
+        run: |
+          python -m pip install --upgrade build
+          rm -rf dist abedome_frontend.egg-info
+          python -m build
+
+      - name: Verify the package metadata and contents
+        run: |
+          python -m pip install --target "$RUNNER_TEMP/abedome-frontend-check" dist/abedome_frontend-*.whl
+          python - <<'PY'
+          import pathlib
+          import tomllib
+          import zipfile
+
+          project = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
+          wheel = next(pathlib.Path("dist").glob("abedome_frontend-*.whl"))
+          with zipfile.ZipFile(wheel) as archive:
+              names = archive.namelist()
+          assert any(name.startswith("hass_frontend/") for name in names)
+          print(f"Built {project['project']['name']} {project['project']['version']}: {wheel.name}")
+          PY
+
+      - name: Retain the ABEDOME frontend package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: abedome-frontend-package
+          path: dist/abedome_frontend-*.whl
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish the approved ABEDOME frontend package
+    needs: package
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/abedome/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download the verified package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: abedome-frontend-package
+          path: dist
+
+      - name: Publish the versioned ABEDOME frontend package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          WHEEL=$(find dist -name 'abedome_frontend-*.whl' -print -quit)
+          VERSION=$(echo "$WHEEL" | sed -E 's|.*/abedome_frontend-([^-]+)-.*|\1|')
+          TAG_NAME="abedome-frontend-${VERSION}"
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists; package releases are immutable. Increase the package version before publishing again."
+            exit 1
+          fi
+
+          gh release create "$TAG_NAME" "$WHEEL" \
+            --title "ABEDOME Frontend ${VERSION}" \
+            --notes "Versioned ABEDOME frontend package for controlled Core integration." \
+            --prerelease
