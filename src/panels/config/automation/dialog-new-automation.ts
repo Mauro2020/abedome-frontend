@@ -37,7 +37,7 @@ import {
   type FuseWeightedKey,
   multiTermSearch,
 } from "../../../resources/fuseMultiTerm";
-import { mdiHomeAssistant } from "../../../resources/home-assistant-logo-svg";
+import { mdiAbedome } from "../../../resources/abedome-logo-svg";
 import { haStyle, haStyleDialog } from "../../../resources/styles";
 import type { HomeAssistant } from "../../../types";
 import { documentationUrl } from "../../../util/documentation-url";
@@ -46,7 +46,7 @@ import type { NewAutomationDialogParams } from "./show-dialog-new-automation";
 const SOURCE_TYPE_ICONS: Record<BlueprintSourceType, string> = {
   local: mdiFile,
   community: mdiAccount,
-  homeassistant: mdiHomeAssistant,
+  homeassistant: mdiAbedome,
 };
 
 const BLUEPRINT_SEARCH_KEYS: FuseWeightedKey[] = [

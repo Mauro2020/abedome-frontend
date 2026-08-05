@@ -72,7 +72,7 @@ import type {
   EntityRegistryEntry,
 } from "./entity/entity_registry";
 
-import { mdiHomeAssistant } from "../resources/home-assistant-logo-svg";
+import { mdiAbedome } from "../resources/abedome-logo-svg";
 import { callWS } from "../util/websocket";
 import { getConditionDomain, getConditionObjectId } from "./condition";
 import { getTriggerDomain, getTriggerObjectId } from "./trigger";
@@ -97,14 +97,14 @@ export const FALLBACK_DOMAIN_ICONS = {
   counter: mdiCounter,
   date: mdiCalendar,
   datetime: mdiCalendarClock,
-  demo: mdiHomeAssistant,
+  demo: mdiAbedome,
   device_tracker: mdiAccount,
   door: mdiDoorOpen,
   garage_door: mdiGarageOpen,
   gate: mdiGate,
   google_assistant: mdiGoogleAssistant,
   group: mdiGoogleCirclesCommunities,
-  homeassistant: mdiHomeAssistant,
+  homeassistant: mdiAbedome,
   homekit: mdiHomeAutomation,
   humidity: mdiWaterPercent,
   illuminance: mdiBrightness6,

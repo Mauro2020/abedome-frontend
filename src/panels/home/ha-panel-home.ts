@@ -17,7 +17,7 @@ import {
   type HomeFrontendSystemData,
 } from "../../data/frontend";
 import type { LovelaceDashboardStrategyConfig } from "../../data/lovelace/config/types";
-import { mdiHomeAssistant } from "../../resources/home-assistant-logo-svg";
+import { mdiAbedome } from "../../resources/abedome-logo-svg";
 import type { HomeAssistant, PanelInfo, Route } from "../../types";
 import { showToast } from "../../util/toast";
 import { showAreaRegistryDetailDialog } from "../config/areas/show-dialog-area-registry-detail";
@@ -303,7 +303,7 @@ class PanelHome extends LitElement {
     return html`
       <div class="banner">
         <div class="banner-content">
-          <ha-svg-icon .path=${mdiHomeAssistant}></ha-svg-icon>
+          <ha-svg-icon .path=${mdiAbedome}></ha-svg-icon>
           <span class="banner-text">
             ${this.hass.localize("ui.panel.home.banner.welcome_message")}
           </span>
