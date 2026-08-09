@@ -1,10 +1,10 @@
 import type { TemplateResult } from "lit";
 import { css, html, LitElement } from "lit";
 import { customElement } from "lit/decorators";
+import "../../../../src/components/abedome-logo-svg";
 import "../../../../src/components/ha-alert";
 import "../../../../src/components/ha-card";
 import "../../../../src/components/ha-button";
-import "../../../../src/components/ha-logo-svg";
 import { THEME_COMPARISON_PANELS } from "../../components/demo-theme-comparison";
 
 const alerts: {
@@ -91,7 +91,7 @@ const alerts: {
     description: "Alert with slotted icon",
     type: "warning",
     iconSlot: html`<span slot="icon" class="image">
-      <ha-logo-svg></ha-logo-svg>
+      <abedome-logo-svg></abedome-logo-svg>
     </span>`,
   },
   {
@@ -99,9 +99,7 @@ const alerts: {
     description: "Alert with slotted image",
     type: "warning",
     iconSlot: html`<span slot="icon" class="image"
-      ><img
-        alt="Home Assistant logo"
-        src="https://www.home-assistant.io/images/home-assistant-logo.svg"
+      ><img alt="ABEDOME logo" src="/static/icons/favicon-192x192.png"
     /></span>`,
   },
   {

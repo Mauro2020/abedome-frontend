@@ -6,7 +6,7 @@ import { titleCase } from "../../../../src/common/string/title-case";
 import "../../../../src/components/ha-button";
 import "../../../../src/components/ha-card";
 import "../../../../src/components/ha-svg-icon";
-import { mdiHomeAssistant } from "../../../../src/resources/home-assistant-logo-svg";
+import { mdiAbedome } from "../../../../src/resources/abedome-logo-svg";
 import { THEME_COMPARISON_PANELS } from "../../components/demo-theme-comparison";
 
 const appearances = ["accent", "filled", "plain"];
@@ -31,7 +31,7 @@ export class DemoHaButton extends LitElement {
                             .variant=${variant}
                           >
                             <ha-svg-icon
-                              .path=${mdiHomeAssistant}
+                              .path=${mdiAbedome}
                               slot="start"
                             ></ha-svg-icon>
                             ${titleCase(`${variant} ${appearance}`)}
@@ -65,7 +65,7 @@ export class DemoHaButton extends LitElement {
                             loading
                           >
                             <ha-svg-icon
-                              .path=${mdiHomeAssistant}
+                              .path=${mdiAbedome}
                               slot="start"
                             ></ha-svg-icon>
                             ${titleCase(`${variant} ${appearance}`)}

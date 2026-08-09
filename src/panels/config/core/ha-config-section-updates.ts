@@ -18,6 +18,7 @@ import "../../../components/ha-card";
 import "../../../components/ha-dropdown";
 import type { HaDropdownSelectEvent } from "../../../components/ha-dropdown";
 import "../../../components/ha-dropdown-item";
+import { ABEDOME_PRODUCT_NAME } from "../../../data/abedome";
 import type { EntitySources } from "../../../data/entity/entity_sources";
 import { fetchEntitySourcesWithCache } from "../../../data/entity/entity_sources";
 import { extractApiErrorMessage } from "../../../data/hassio/common";
@@ -464,7 +465,7 @@ class HaConfigSectionUpdates extends LitElement {
       if (systemEntities.length) {
         groups.push({
           key: SYSTEM_KEY,
-          title: localize("ui.panel.config.updates.group_system"),
+          title: ABEDOME_PRODUCT_NAME,
           entities: systemEntities,
           showUpdateAll: false,
         });

@@ -5,7 +5,7 @@ import { customElement } from "lit/decorators";
 import "../../../../src/components/ha-badge";
 import "../../../../src/components/ha-card";
 import "../../../../src/components/ha-svg-icon";
-import { mdiHomeAssistant } from "../../../../src/resources/home-assistant-logo-svg";
+import { mdiAbedome } from "../../../../src/resources/abedome-logo-svg";
 import { THEME_COMPARISON_PANELS } from "../../components/demo-theme-comparison";
 
 const badges: {
@@ -49,10 +49,7 @@ const badges: {
   {
     label: "Icon only",
     iconOnly: true,
-    iconSlot: html`<ha-svg-icon
-      slot="icon"
-      .path=${mdiHomeAssistant}
-    ></ha-svg-icon>`,
+    iconSlot: html`<ha-svg-icon slot="icon" .path=${mdiAbedome}></ha-svg-icon>`,
   },
 ];
 
