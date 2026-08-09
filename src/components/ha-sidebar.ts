@@ -16,6 +16,7 @@ import { toggleAttribute } from "../common/dom/toggle_attribute";
 import { stringCompare } from "../common/string/compare";
 import { computeRTL } from "../common/util/compute_rtl";
 import { throttle } from "../common/util/throttle";
+import { ABEDOME_PRODUCT_NAME } from "../data/abedome";
 import { subscribeFrontendUserData } from "../data/frontend";
 import type { ActionHandlerEvent } from "../data/lovelace/action_handler";
 import {
@@ -171,7 +172,7 @@ class HaSidebar extends SubscribeMixin(ScrollableFadeMixin(LitElement)) {
   public alwaysExpand = false;
 
   @property({ attribute: "sidebar-title" }) public sidebarTitle =
-    "Home Assistant";
+    ABEDOME_PRODUCT_NAME;
 
   @state() private _notifications?: PersistentNotification[];
 

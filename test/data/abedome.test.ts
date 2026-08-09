@@ -3,9 +3,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   ABEDOME_CORE_TITLE,
+  ABEDOME_FRONTEND_TITLE,
   ABEDOME_OS_TITLE,
+  ABEDOME_PRODUCT_NAME,
   ABEDOME_SUPERVISOR_TITLE,
   formatAbedomeInstallationMethod,
+  formatAbedomePageTitle,
 } from "../../src/data/abedome";
 import {
   filterUpdateEntities,
@@ -21,6 +24,19 @@ const createUpdateEntity = (entityId: string, title: string): UpdateEntity =>
   }) as UpdateEntity;
 
 describe("ABEDOME product labels", () => {
+  it("centralizes the visible product names", () => {
+    expect(ABEDOME_PRODUCT_NAME).toBe("ABEDOME");
+    expect(ABEDOME_CORE_TITLE).toBe("ABEDOME Core");
+    expect(ABEDOME_FRONTEND_TITLE).toBe("ABEDOME Frontend");
+    expect(ABEDOME_OS_TITLE).toBe("ABEDOME OS");
+    expect(ABEDOME_SUPERVISOR_TITLE).toBe("ABEDOME Supervisor");
+  });
+
+  it("brands browser page titles", () => {
+    expect(formatAbedomePageTitle()).toBe(ABEDOME_PRODUCT_NAME);
+    expect(formatAbedomePageTitle("Settings")).toBe("Settings – ABEDOME");
+  });
+
   it("shows the branded OS installation method", () => {
     expect(formatAbedomeInstallationMethod("Home Assistant OS")).toBe(
       ABEDOME_OS_TITLE

@@ -5,7 +5,7 @@ import type { HASSDomCurrentTargetEvent } from "../../../../src/common/dom/fire_
 import "../../../../src/components/buttons/ha-progress-button";
 import "../../../../src/components/ha-card";
 import "../../../../src/components/ha-svg-icon";
-import { mdiHomeAssistant } from "../../../../src/resources/home-assistant-logo-svg";
+import { mdiAbedome } from "../../../../src/resources/abedome-logo-svg";
 import { THEME_COMPARISON_PANELS } from "../../components/demo-theme-comparison";
 
 @customElement("demo-components-ha-progress-button")
@@ -48,7 +48,7 @@ export class DemoHaProgressButton extends LitElement {
                   variant="neutral"
                   @click=${this._clickedSuccess}
                   label="with icon"
-                  .iconPath=${mdiHomeAssistant}
+                  .iconPath=${mdiAbedome}
                 >
                   With Icon
                 </ha-progress-button>

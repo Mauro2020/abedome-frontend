@@ -395,20 +395,12 @@ export class HomeAssistantAppEl extends QuickBarMixin(HassElement) {
         .error=${error}
         .migration=${this._databaseMigration}
         .localize=${this._launchScreenLocalize}
-      ></ha-init-page>`,
-      this._launchScreenAttribution
+      ></ha-init-page>`
     );
   }
 
   private get _launchScreenLocalize(): LocalizeFunc | undefined {
     return (this.hass ?? this._pendingHass).localize;
-  }
-
-  private get _launchScreenAttribution() {
-    return (
-      this._launchScreenLocalize?.("ui.init.project_from") ||
-      "A project from the"
-    );
   }
 }
 

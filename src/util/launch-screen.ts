@@ -38,36 +38,9 @@ export const removeLaunchScreen = (instant = false): boolean => {
   return true;
 };
 
-export const renderLaunchScreenContent = (
-  content: TemplateResult,
-  attribution: string
-) => {
+export const renderLaunchScreenContent = (content: TemplateResult) => {
   const infoBoxElement = document.getElementById("ha-launch-screen-info-box");
   if (infoBoxElement) {
     render(content, infoBoxElement);
-  }
-  updateLaunchScreenAttribution(attribution);
-};
-
-/**
- * Switches the launch screen OHF logo to the variant matching the applied
- * theme. The `<picture>` element initially picks a variant based on the system
- * color scheme, which can differ from the theme the frontend ends up applying.
- */
-export const updateLaunchScreenLogo = (darkMode: boolean) => {
-  const logoSourceElement = document.querySelector<HTMLSourceElement>(
-    "#ha-launch-screen .ohf-logo source"
-  );
-  if (logoSourceElement) {
-    logoSourceElement.media = darkMode ? "all" : "not all";
-  }
-};
-
-export const updateLaunchScreenAttribution = (attribution: string) => {
-  const attributionElement = document.getElementById(
-    "ha-launch-screen-attribution"
-  );
-  if (attributionElement) {
-    attributionElement.textContent = attribution;
   }
 };

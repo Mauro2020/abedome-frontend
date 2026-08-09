@@ -22,6 +22,10 @@ import type { HaGenericPicker } from "../../../components/ha-generic-picker";
 import type { PickerComboBoxItem } from "../../../components/ha-picker-combo-box";
 import "../../../components/input/ha-input-search";
 import type { HaInputSearch } from "../../../components/input/ha-input-search";
+import {
+  ABEDOME_CORE_TITLE,
+  ABEDOME_SUPERVISOR_TITLE,
+} from "../../../data/abedome";
 import type { LogProvider } from "../../../data/error_log";
 import { fetchHassioAddonsInfo } from "../../../data/hassio/addon";
 import { showAlertDialog } from "../../../dialogs/generic/show-dialog-box";
@@ -36,11 +40,11 @@ import type { SystemLogCard } from "./system-log-card";
 const logProviders: LogProvider[] = [
   {
     key: "core",
-    name: "Home Assistant Core",
+    name: ABEDOME_CORE_TITLE,
   },
   {
     key: "supervisor",
-    name: "Supervisor",
+    name: ABEDOME_SUPERVISOR_TITLE,
   },
   {
     key: "host",

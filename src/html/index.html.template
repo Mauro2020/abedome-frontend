@@ -60,8 +60,7 @@
         flex-shrink: 0;
         animation: launch-lockup-in var(--ha-animation-duration-normal, 250ms) ease-out both;
       }
-      #ha-launch-screen-info-box > *,
-      #ha-launch-screen .ohf-logo {
+      #ha-launch-screen-info-box > * {
         animation: launch-lockup-in var(--ha-animation-duration-normal, 250ms) ease-out both;
       }
       #ha-launch-screen .ha-logo {
@@ -70,33 +69,10 @@
       }
       #ha-launch-screen .ha-launch-screen-spacer-top {
         flex: 1;
-        margin-top: calc( 2 * max(var(--safe-area-inset-top, 0px), 48px) + 46px );
-        padding-top: 48px;
       }
       #ha-launch-screen .ha-launch-screen-spacer-bottom {
         flex: 1;
         padding-top: 16px;
-      }
-      .ohf-logo {
-        margin: max(var(--safe-area-inset-bottom, 0px), 48px) 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        opacity: .66;
-      }
-      .ohf-logo span {
-        font-size: 12px;
-        line-height: 12px;
-        text-transform: uppercase;
-      }
-      .ohf-logo picture {
-        display: flex;
-      }
-      .ohf-logo img {
-        width: 237px;
-        aspect-ratio: 237 / 24;
-        height: auto;
       }
       @media (prefers-color-scheme: dark) {
         html {
@@ -108,19 +84,6 @@
           background-color: var(--primary-background-color, #111111);
         }
       }
-      @media (max-height: 560px) {
-        /* body selector to avoid minification causing bad jinja2 */
-        body #ha-launch-screen .ha-launch-screen-spacer-top {
-          margin-top: 24px;
-          padding-top: 24px;
-        }
-        body #ha-launch-screen .ha-launch-screen-spacer-bottom {
-          padding-top: 16px;
-        }
-        .ohf-logo {
-          margin-block: 24px;
-        }
-      }
     </style>
   </head>
   <body>
@@ -130,13 +93,6 @@
         <img class="ha-logo" src="/static/icons/favicon-512x512.png" alt="ABEDOME">
       </div>
       <div id="ha-launch-screen-info-box" class="ha-launch-screen-spacer-bottom"></div>
-      <div class="ohf-logo">
-        <span id="ha-launch-screen-attribution">A project from the</span>
-        <picture>
-          <source media="(prefers-color-scheme: dark)" srcset="/static/images/open-home-foundation-on-dark.svg">
-          <img src="/static/images/open-home-foundation-on-light.svg" alt="Open Home Foundation" width="237" height="24">
-        </picture>
-      </div>
     </div>
     <home-assistant></home-assistant>
     <%= renderTemplate("_js_base.html.template") %>

@@ -7,6 +7,11 @@ import "../../../../components/ha-alert";
 import "../../../../components/ha-button";
 import "../../../../components/ha-dialog-footer";
 import "../../../../components/ha-dialog";
+import {
+  ABEDOME_CORE_TITLE,
+  ABEDOME_OS_TITLE,
+  ABEDOME_SUPERVISOR_TITLE,
+} from "../../../../data/abedome";
 import type { HassDialog } from "../../../../dialogs/make-dialog-manager";
 import { haStyleDialog } from "../../../../resources/styles";
 import type { HomeAssistant } from "../../../../types";
@@ -58,9 +63,9 @@ export class DialogJoinBeta
           ${this.hass.localize("ui.dialogs.join_beta_channel.release_items")}
         </p>
         <ul>
-          <li>Home Assistant Core</li>
-          <li>Home Assistant Supervisor</li>
-          <li>Home Assistant Operating System</li>
+          <li>${ABEDOME_CORE_TITLE}</li>
+          <li>${ABEDOME_SUPERVISOR_TITLE}</li>
+          <li>${ABEDOME_OS_TITLE}</li>
         </ul>
         <a
           href=${documentationUrl(this.hass!, "/faq/release/")}

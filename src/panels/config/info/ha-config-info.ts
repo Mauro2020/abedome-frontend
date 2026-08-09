@@ -19,7 +19,14 @@ import type { HassioHassOSInfo } from "../../../data/hassio/host";
 import { fetchHassioHassOsInfo } from "../../../data/hassio/host";
 import type { HassioInfo } from "../../../data/hassio/supervisor";
 import { fetchHassioInfo } from "../../../data/hassio/supervisor";
-import { formatAbedomeInstallationMethod } from "../../../data/abedome";
+import {
+  ABEDOME_CORE_TITLE,
+  ABEDOME_FRONTEND_TITLE,
+  ABEDOME_OS_TITLE,
+  ABEDOME_PRODUCT_NAME,
+  ABEDOME_SUPERVISOR_TITLE,
+  formatAbedomeInstallationMethod,
+} from "../../../data/abedome";
 import { subscribeSystemHealthInfo } from "../../../data/system_health";
 import { showShortcutsDialog } from "../../../dialogs/shortcuts/show-shortcuts-dialog";
 import "../../../layouts/hass-subpage";
@@ -117,8 +124,8 @@ class HaConfigInfo extends LitElement {
       >
         <div class="content">
           <ha-card outlined class="header">
-            <abedome-logo-svg title="ABEDOME"></abedome-logo-svg>
-            <p>ABEDOME</p>
+            <abedome-logo-svg .title=${ABEDOME_PRODUCT_NAME}></abedome-logo-svg>
+            <p>${ABEDOME_PRODUCT_NAME}</p>
             <ul class="versions">
               <li>
                 <span class="version-label"
@@ -134,14 +141,16 @@ class HaConfigInfo extends LitElement {
                 >
               </li>
               <li>
-                <span class="version-label">Core</span>
+                <span class="version-label">${ABEDOME_CORE_TITLE}</span>
                 <span class="version">${hass.connection.haVersion}</span>
               </li>
               ${
                 this._hassioInfo
                   ? html`
                       <li>
-                        <span class="version-label">Supervisor</span>
+                        <span class="version-label"
+                          >${ABEDOME_SUPERVISOR_TITLE}</span
+                        >
                         <span class="version"
                           >${this._hassioInfo.supervisor}</span
                         >
@@ -153,18 +162,14 @@ class HaConfigInfo extends LitElement {
                 this._osInfo
                   ? html`
                       <li>
-                        <span class="version-label">Operating System</span>
+                        <span class="version-label">${ABEDOME_OS_TITLE}</span>
                         <span class="version">${this._osInfo.version}</span>
                       </li>
                     `
                   : nothing
               }
               <li>
-                <span class="version-label">
-                  ${this.hass.localize(
-                    "ui.panel.config.info.frontend_version_label"
-                  )}
-                </span>
+                <span class="version-label">${ABEDOME_FRONTEND_TITLE}</span>
                 <span class="version">
                   ${JS_VERSION}${JS_TYPE !== "modern" ? ` · ${JS_TYPE}` : ""}
                 </span>
