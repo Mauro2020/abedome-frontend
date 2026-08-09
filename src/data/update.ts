@@ -13,6 +13,11 @@ import { caseInsensitiveStringCompare } from "../common/string/compare";
 import { showAlertDialog } from "../dialogs/generic/show-dialog-box";
 import type { HomeAssistant } from "../types";
 import { showToast } from "../util/toast";
+import {
+  ABEDOME_CORE_TITLE,
+  ABEDOME_OS_TITLE,
+  ABEDOME_SUPERVISOR_TITLE,
+} from "./abedome";
 import type { EntitySources } from "./entity/entity_sources";
 
 export enum UpdateEntityFeature {
@@ -90,17 +95,22 @@ const HOME_ASSISTANT_CORE_TITLE = "Home Assistant Core";
 const HOME_ASSISTANT_SUPERVISOR_TITLE = "Home Assistant Supervisor";
 const HOME_ASSISTANT_OS_TITLE = "Home Assistant Operating System";
 
+const SYSTEM_UPDATE_ORDER = new Map<string, number>([
+  [ABEDOME_CORE_TITLE, -3],
+  [HOME_ASSISTANT_CORE_TITLE, -3],
+  [ABEDOME_OS_TITLE, -2],
+  [HOME_ASSISTANT_OS_TITLE, -2],
+  [ABEDOME_SUPERVISOR_TITLE, -1],
+  [HOME_ASSISTANT_SUPERVISOR_TITLE, -1],
+]);
+
 // The hassio integration sets these as hard-coded `_attr_title` on the Core,
 // Operating System, and Supervisor update entities. They are not translated,
 // so a title comparison is the reliable way to identify them without depending
 // on the (lazily-fetched) entity sources.
 export const isSystemUpdate = (entity: UpdateEntity): boolean => {
   const title = entity.attributes.title || "";
-  return (
-    title === HOME_ASSISTANT_CORE_TITLE ||
-    title === HOME_ASSISTANT_OS_TITLE ||
-    title === HOME_ASSISTANT_SUPERVISOR_TITLE
-  );
+  return SYSTEM_UPDATE_ORDER.has(title);
 };
 
 export const filterUpdateEntities = (
@@ -112,23 +122,10 @@ export const filterUpdateEntities = (
       (entity) => computeStateDomain(entity) === "update"
     ) as UpdateEntity[]
   ).sort((a, b) => {
-    if (a.attributes.title === HOME_ASSISTANT_CORE_TITLE) {
-      return -3;
-    }
-    if (b.attributes.title === HOME_ASSISTANT_CORE_TITLE) {
-      return 3;
-    }
-    if (a.attributes.title === HOME_ASSISTANT_OS_TITLE) {
-      return -2;
-    }
-    if (b.attributes.title === HOME_ASSISTANT_OS_TITLE) {
-      return 2;
-    }
-    if (a.attributes.title === HOME_ASSISTANT_SUPERVISOR_TITLE) {
-      return -1;
-    }
-    if (b.attributes.title === HOME_ASSISTANT_SUPERVISOR_TITLE) {
-      return 1;
+    const aSystemOrder = SYSTEM_UPDATE_ORDER.get(a.attributes.title || "");
+    const bSystemOrder = SYSTEM_UPDATE_ORDER.get(b.attributes.title || "");
+    if (aSystemOrder !== undefined || bSystemOrder !== undefined) {
+      return (aSystemOrder ?? 0) - (bSystemOrder ?? 0);
     }
     return caseInsensitiveStringCompare(
       a.attributes.title || a.attributes.friendly_name || "",

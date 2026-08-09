@@ -19,6 +19,7 @@ import type { HassioHassOSInfo } from "../../../data/hassio/host";
 import { fetchHassioHassOsInfo } from "../../../data/hassio/host";
 import type { HassioInfo } from "../../../data/hassio/supervisor";
 import { fetchHassioInfo } from "../../../data/hassio/supervisor";
+import { formatAbedomeInstallationMethod } from "../../../data/abedome";
 import { subscribeSystemHealthInfo } from "../../../data/system_health";
 import { showShortcutsDialog } from "../../../dialogs/shortcuts/show-shortcuts-dialog";
 import "../../../layouts/hass-subpage";
@@ -73,7 +74,7 @@ const BRAND_NOTICE = {
   en: [
     "ABEDOME is independent software developed as a modified fork of Home Assistant.",
     "ABEDOME is not affiliated with, associated with, authorized by, or otherwise officially connected with Nabu Casa or Home Assistant.",
-    '“Home Assistant” is used solely to describe the origin of the software.',
+    "“Home Assistant” is used solely to describe the origin of the software.",
   ],
   it: [
     "ABEDOME è un software indipendente, sviluppato come fork modificato di Home Assistant.",
@@ -125,7 +126,12 @@ class HaConfigInfo extends LitElement {
                     "ui.panel.config.info.installation_method"
                   )}</span
                 >
-                <span class="version">${this._installationMethod || "…"}</span>
+                <span class="version"
+                  >${
+                    formatAbedomeInstallationMethod(this._installationMethod) ||
+                    "…"
+                  }</span
+                >
               </li>
               <li>
                 <span class="version-label">Core</span>
