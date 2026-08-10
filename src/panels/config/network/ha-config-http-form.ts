@@ -15,6 +15,7 @@ import "../../../components/ha-card";
 import "../../../components/ha-form/ha-form";
 import type { HaForm } from "../../../components/ha-form/ha-form";
 import type { SchemaUnion } from "../../../components/ha-form/types";
+import { formatAbedomeProductText } from "../../../data/abedome";
 import {
   fetchHttpConfig,
   HTTP_CONFIG_FIELDS,
@@ -218,14 +219,18 @@ class HaConfigHttpForm extends LitElement {
       >
         <div class="card-content">
           <p class="description">
-            ${this.hass.localize("ui.panel.config.network.http.description")}
+            ${formatAbedomeProductText(
+              this.hass.localize("ui.panel.config.network.http.description")
+            )}
           </p>
           ${
             this._activeConfigType === "default"
               ? html`
                   <ha-alert alert-type="warning">
-                    ${this.hass.localize(
-                      "ui.panel.config.network.http.running_default"
+                    ${formatAbedomeProductText(
+                      this.hass.localize(
+                        "ui.panel.config.network.http.running_default"
+                      )
                     )}
                   </ha-alert>
                 `
@@ -237,12 +242,16 @@ class HaConfigHttpForm extends LitElement {
                   <ha-alert alert-type="warning">
                     ${
                       this._revertedPending.error === "not_promoted"
-                        ? this.hass.localize(
-                            "ui.panel.config.network.http.reverted_not_confirmed"
+                        ? formatAbedomeProductText(
+                            this.hass.localize(
+                              "ui.panel.config.network.http.reverted_not_confirmed"
+                            )
                           )
-                        : this.hass.localize(
-                            "ui.panel.config.network.http.reverted_failed",
-                            { error: this._revertedPending.error ?? "" }
+                        : formatAbedomeProductText(
+                            this.hass.localize(
+                              "ui.panel.config.network.http.reverted_failed",
+                              { error: this._revertedPending.error ?? "" }
+                            )
                           )
                     }
                     <ha-button slot="action" @click=${this._reviewReverted}>
@@ -258,8 +267,10 @@ class HaConfigHttpForm extends LitElement {
             portChanged
               ? html`
                   <ha-alert alert-type="warning">
-                    ${this.hass.localize(
-                      "ui.panel.config.network.http.port_warning"
+                    ${formatAbedomeProductText(
+                      this.hass.localize(
+                        "ui.panel.config.network.http.port_warning"
+                      )
                     )}
                   </ha-alert>
                 `
@@ -269,8 +280,10 @@ class HaConfigHttpForm extends LitElement {
             hasListenAddresses
               ? html`
                   <ha-alert alert-type="warning">
-                    ${this.hass.localize(
-                      "ui.panel.config.network.http.server_host_warning"
+                    ${formatAbedomeProductText(
+                      this.hass.localize(
+                        "ui.panel.config.network.http.server_host_warning"
+                      )
                     )}
                   </ha-alert>
                 `
@@ -377,12 +390,13 @@ class HaConfigHttpForm extends LitElement {
       return "";
     }
     if (schema.name === "server_port") {
-      return this.hass.localize(
-        "ui.panel.config.network.http.helpers.server_port",
-        { port: this._default?.server_port ?? 8123 }
+      return formatAbedomeProductText(
+        this.hass.localize("ui.panel.config.network.http.helpers.server_port", {
+          port: this._default?.server_port ?? 8123,
+        })
       );
     }
-    return (
+    return formatAbedomeProductText(
       this.hass.localize(
         `ui.panel.config.network.http.helpers.${schema.name}` as any
       ) || ""
@@ -434,13 +448,15 @@ class HaConfigHttpForm extends LitElement {
 
   private _showNewAddress(url: string): void {
     showAlertDialog(this, {
-      title: this.hass.localize(
-        "ui.panel.config.network.http.restart_address.title"
+      title: formatAbedomeProductText(
+        this.hass.localize("ui.panel.config.network.http.restart_address.title")
       ),
       text: html`
         <p>
-          ${this.hass.localize(
-            "ui.panel.config.network.http.restart_address.text"
+          ${formatAbedomeProductText(
+            this.hass.localize(
+              "ui.panel.config.network.http.restart_address.text"
+            )
           )}
         </p>
         <a href=${url} rel="noreferrer noopener">${url}</a>
@@ -470,8 +486,8 @@ class HaConfigHttpForm extends LitElement {
       title: this.hass.localize(
         "ui.panel.config.network.http.save_confirm.title"
       ),
-      text: this.hass.localize(
-        "ui.panel.config.network.http.save_confirm.text"
+      text: formatAbedomeProductText(
+        this.hass.localize("ui.panel.config.network.http.save_confirm.text")
       ),
       confirmText: this.hass.localize(
         "ui.panel.config.network.http.save_confirm.confirm"
