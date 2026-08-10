@@ -7,6 +7,7 @@ import "../../../components/ha-card";
 import "../../../components/ha-md-list";
 import "../../../components/ha-md-list-item";
 import "../../../components/ha-icon-next";
+import { formatAbedomeProductText } from "../../../data/abedome";
 import type { HomeAssistant, Route } from "../../../types";
 import "./ha-config-http-form";
 import "./ha-config-network";
@@ -67,8 +68,10 @@ class HaConfigSectionNetwork extends LitElement {
                               )}
                             </div>
                             <div slot="supporting-text">
-                              ${this.hass.localize(
-                                `ui.panel.config.network.discovery.${domain}_info`
+                              ${formatAbedomeProductText(
+                                this.hass.localize(
+                                  `ui.panel.config.network.discovery.${domain}_info`
+                                )
                               )}
                             </div>
                             <ha-icon-next slot="end"></ha-icon-next>

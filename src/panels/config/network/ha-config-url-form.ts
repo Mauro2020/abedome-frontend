@@ -13,6 +13,7 @@ import type { HaSwitch } from "../../../components/ha-switch";
 import type { HaInput } from "../../../components/input/ha-input";
 import "../../../components/input/ha-input-copy";
 import type { HaInputCopy } from "../../../components/input/ha-input-copy";
+import { formatAbedomeProductText } from "../../../data/abedome";
 import type { CloudStatus } from "../../../data/cloud";
 import { fetchCloudStatus } from "../../../data/cloud";
 import { saveCoreConfig } from "../../../data/core";
@@ -131,7 +132,9 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
     return html`
       <ha-card
         outlined
-        .header=${this.hass.localize("ui.panel.config.url.caption")}
+        .header=${formatAbedomeProductText(
+          this.hass.localize("ui.panel.config.url.caption")
+        )}
       >
         <div class="card-content">
           ${
@@ -152,7 +155,9 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
           }
 
           <div class="description">
-            ${this.hass.localize("ui.panel.config.url.description")}
+            ${formatAbedomeProductText(
+              this.hass.localize("ui.panel.config.url.description")
+            )}
           </div>
 
           <h4>
@@ -199,28 +204,6 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
             >
             </ha-input-copy>
           </div>
-          ${
-            hasCloud || !isComponentLoaded(this.hass.config, "cloud")
-              ? nothing
-              : html`
-                  <ha-alert alert-type="info">
-                    ${this.hass.localize(
-                      "ui.panel.config.url.external_get_ha_cloud"
-                    )}
-                    <ha-button
-                      size="s"
-                      href="/config/cloud/register"
-                      slot="action"
-                    >
-                      <span class="no-wrap"
-                        >${this.hass.localize(
-                          "ui.panel.config.cloud.register.start_trial"
-                        )}</span
-                      >
-                    </ha-button>
-                  </ha-alert>
-                `
-          }
           ${
             !this._showCustomExternalUrl && hasCloud
               ? html`
@@ -319,8 +302,10 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
                       "ui.panel.config.url.internal_url_https_error_title"
                     )}
                   >
-                    ${this.hass.localize(
-                      "ui.panel.config.url.internal_url_https_error_description"
+                    ${formatAbedomeProductText(
+                      this.hass.localize(
+                        "ui.panel.config.url.internal_url_https_error_description"
+                      )
                     )}
                   </ha-alert>
                 `
@@ -471,10 +456,6 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
       --md-list-item-leading-space: 0;
       --md-list-item-trailing-space: 0;
       --md-list-item-two-line-container-height: 48px;
-    }
-
-    .no-wrap {
-      white-space: nowrap;
     }
   `;
 }

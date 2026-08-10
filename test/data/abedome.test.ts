@@ -64,6 +64,21 @@ describe("ABEDOME product labels", () => {
     expect(branded[1]).toBe(icon);
   });
 
+  it("brands localized network copy without changing placeholders", () => {
+    expect(
+      formatAbedomeProductText(
+        "La porta su cui Home Assistant è in ascolto. Il valore predefinito è {port}."
+      )
+    ).toBe(
+      "La porta su cui ABEDOME è in ascolto. Il valore predefinito è {port}."
+    );
+    expect(
+      formatAbedomeProductText(
+        "Mostra i servizi di rete sconosciuti a Home Assistant."
+      )
+    ).toBe("Mostra i servizi di rete sconosciuti a ABEDOME.");
+  });
+
   it("shows the branded OS installation method", () => {
     expect(formatAbedomeInstallationMethod("Home Assistant OS")).toBe(
       ABEDOME_OS_TITLE
