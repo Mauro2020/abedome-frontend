@@ -41,7 +41,6 @@ import type { HomeAssistant, ValueChangedEvent } from "../types";
 import { storeState } from "../util/ha-pref-storage";
 import { registerServiceWorker } from "../util/register-service-worker";
 import "../components/progress/ha-progress-bar";
-import "./onboarding-analytics";
 import "./onboarding-create-user";
 import "./onboarding-loading";
 import "./onboarding-welcome";
@@ -62,9 +61,6 @@ type OnboardingEvent =
     }
   | {
       type: "integration";
-    }
-  | {
-      type: "analytics";
     };
 
 interface OnboardingProgressEvent {
@@ -188,14 +184,6 @@ class HaOnboarding extends litLocalizeLiteMixin(HassElement) {
           .hass=${this.hass}
           .onboardingLocalize=${this.localize}
         ></onboarding-core-config>
-      `;
-    }
-    if (step.step === "analytics") {
-      return html`
-        <onboarding-analytics
-          .hass=${this.hass}
-          .localize=${this.localize}
-        ></onboarding-analytics>
       `;
     }
     if (step.step === "integration") {
@@ -359,7 +347,7 @@ class HaOnboarding extends litLocalizeLiteMixin(HassElement) {
       this._init = false;
       this._restoring = stepResult.result?.restore;
       if (!this._restoring) {
-        this._progress = 25;
+        this._setCompletedScreenProgress(1);
       } else {
         navigate(
           `${location.pathname}?${addSearchParam({ page: `restore_backup${this._restoring === "cloud" ? "_cloud" : ""}` })}`
@@ -368,7 +356,7 @@ class HaOnboarding extends litLocalizeLiteMixin(HassElement) {
     } else if (stepResult.type === "user") {
       const result = stepResult.result as OnboardingResponses["user"];
       this._loading = true;
-      this._progress = 50;
+      this._setCompletedScreenProgress(2);
       enableWrite();
       try {
         const auth = await getAuth({
@@ -385,9 +373,6 @@ class HaOnboarding extends litLocalizeLiteMixin(HassElement) {
         this._loading = false;
       }
     } else if (stepResult.type === "core_config") {
-      this._progress = 75;
-      // We do nothing
-    } else if (stepResult.type === "analytics") {
       this._progress = 100;
       // We do nothing
     } else if (stepResult.type === "integration") {
@@ -456,6 +441,13 @@ class HaOnboarding extends litLocalizeLiteMixin(HassElement) {
 
       document.location.assign(redirectUrl);
     }
+  }
+
+  private _setCompletedScreenProgress(completedScreens: number): void {
+    this._progress = Math.min(
+      100,
+      (completedScreens * 100) / this._steps!.length
+    );
   }
 
   private async _connectHass(auth: Auth) {

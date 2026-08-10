@@ -21,13 +21,14 @@ export interface OnboardingIntegrationStepResponse {
   auth_code: string;
 }
 
+// Kept for the unregistered legacy onboarding element. ABEDOME onboarding no
+// longer exposes this step through OnboardingResponses.
 export interface OnboardingAnalyticsStepResponse {}
 
 export interface OnboardingResponses {
   user: OnboardingUserStepResponse;
   core_config: OnboardingCoreConfigStepResponse;
   integration: OnboardingIntegrationStepResponse;
-  analytics: OnboardingAnalyticsStepResponse;
 }
 
 export type ValidOnboardingStep = keyof OnboardingResponses;
@@ -73,6 +74,8 @@ export const onboardCoreConfigStep = (hass: HomeAssistant) =>
     "onboarding/core_config"
   );
 
+// Kept for the unregistered legacy onboarding element. The active ABEDOME
+// onboarding flow does not import or call it.
 export const onboardAnalyticsStep = (hass: HomeAssistant) =>
   hass.callApi<OnboardingAnalyticsStepResponse>("POST", "onboarding/analytics");
 

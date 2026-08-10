@@ -30,10 +30,6 @@ class HaPanelConfig extends HassRouterPage {
   protected routerOptions: RouterOptions = {
     defaultPage: "dashboard",
     routes: {
-      analytics: {
-        tag: "ha-config-section-analytics",
-        load: () => import("./core/ha-config-section-analytics"),
-      },
       areas: {
         tag: "ha-config-areas",
         load: () => import("./areas/ha-config-areas"),
