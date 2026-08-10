@@ -1,10 +1,4 @@
-import {
-  mdiCloudLock,
-  mdiDotsVertical,
-  mdiMagnify,
-  mdiPower,
-  mdiRefresh,
-} from "@mdi/js";
+import { mdiDotsVertical, mdiMagnify, mdiPower, mdiRefresh } from "@mdi/js";
 import type { UnsubscribeFunc } from "home-assistant-js-websocket";
 import type { CSSResultGroup, PropertyValues, TemplateResult } from "lit";
 import { css, html, LitElement, nothing } from "lit";
@@ -21,7 +15,6 @@ import "../../../components/ha-svg-icon";
 import "../../../components/ha-tip";
 import "../../../components/ha-tooltip";
 import "../../../components/ha-top-app-bar-fixed";
-import type { CloudStatus } from "../../../data/cloud";
 import type { RepairsIssue } from "../../../data/repairs";
 import {
   severitySort,
@@ -149,8 +142,6 @@ class HaConfigDashboard extends SubscribeMixin(LitElement) {
 
   @property({ attribute: "is-wide", type: Boolean }) public isWide = false;
 
-  @property({ attribute: false }) public cloudStatus?: CloudStatus;
-
   @state() private _tip?: string;
 
   @state() private _repairsIssues: { issues: RepairsIssue[]; total: number } = {
@@ -164,32 +155,15 @@ class HaConfigDashboard extends SubscribeMixin(LitElement) {
   }
 
   private _pages = memoizeOne(
-    (
-      cloudStatus,
-      isCloudLoaded,
-      hasExternalSettings,
-      isAppsInfoDismissed,
-      isHassioLoaded
-    ) => {
+    (hasExternalSettings, isAppsInfoDismissed, isHassioLoaded) => {
       const filterApps = (pages: PageNavigation[]) =>
         isAppsInfoDismissed && !isHassioLoaded
           ? pages.filter((page) => page.path !== "/config/apps")
           : pages;
       return [
-        isCloudLoaded
-          ? filterApps([
-              {
-                component: "cloud",
-                path: "/config/cloud",
-                name: "Home Assistant Cloud",
-                info: cloudStatus,
-                iconPath: mdiCloudLock,
-                iconColor: "#3B808E",
-                translationKey: "cloud",
-              },
-              ...configSections.dashboard,
-            ])
-          : filterApps(configSections.dashboard),
+        // Do not promote the third-party Home Assistant Cloud service in
+        // ABEDOME settings. The direct route remains available for compatibility.
+        filterApps(configSections.dashboard),
         hasExternalSettings ? configSections.dashboard_external_settings : [],
         configSections.dashboard_2,
         configSections.dashboard_3,
@@ -341,8 +315,6 @@ class HaConfigDashboard extends SubscribeMixin(LitElement) {
               : ""
           }
           ${this._pages(
-            this.cloudStatus,
-            isComponentLoaded(this.hass.config, "cloud"),
             this.hass.auth.external?.config.hasSettingsScreen,
             this.hass.userData?.apps_info_dismissed,
             isComponentLoaded(this.hass.config, "hassio")

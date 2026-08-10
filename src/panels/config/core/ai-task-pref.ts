@@ -11,6 +11,7 @@ import "../../../components/entity/ha-entity-picker";
 import type { HaEntityPicker } from "../../../components/entity/ha-entity-picker";
 import "../../../components/ha-card";
 import "../../../components/ha-settings-row";
+import { formatAbedomeProductText } from "../../../data/abedome";
 import {
   AITaskEntityFeature,
   fetchAITaskPreferences,
@@ -82,11 +83,13 @@ export class AITaskPref extends LitElement {
         </div>
         <div class="card-content">
           <p>
-            ${this.hass!.localize("ui.panel.config.ai_task.description", {
-              button: html`<ha-svg-icon
-                .path=${mdiStarFourPoints}
-              ></ha-svg-icon>`,
-            })}
+            ${formatAbedomeProductText(
+              this.hass!.localize("ui.panel.config.ai_task.description", {
+                button: html`<ha-svg-icon
+                  .path=${mdiStarFourPoints}
+                ></ha-svg-icon>`,
+              })
+            )}
           </p>
           <ha-settings-row .narrow=${this.narrow}>
             <span slot="heading">

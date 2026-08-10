@@ -3,6 +3,7 @@ import { customElement, property, state } from "lit/decorators";
 import { fireEvent } from "../../../common/dom/fire_event";
 import "../../../components/ha-dialog";
 import "../../../components/ha-spinner";
+import { formatAbedomeProductText } from "../../../data/abedome";
 import type { HassDialog } from "../../../dialogs/make-dialog-manager";
 import type { HomeAssistant } from "../../../types";
 import type { LabsProgressDialogParams } from "./show-dialog-labs-progress";
@@ -54,10 +55,12 @@ export class DialogLabsProgress
               )}
             </p>
             <p class="description">
-              ${this.hass.localize(
-                this._params.enabled
-                  ? "ui.panel.config.labs.progress.backing_up_before_enabling"
-                  : "ui.panel.config.labs.progress.backing_up_before_disabling"
+              ${formatAbedomeProductText(
+                this.hass.localize(
+                  this._params.enabled
+                    ? "ui.panel.config.labs.progress.backing_up_before_enabling"
+                    : "ui.panel.config.labs.progress.backing_up_before_disabling"
+                )
               )}
             </p>
           </div>

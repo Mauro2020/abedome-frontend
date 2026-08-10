@@ -12,6 +12,7 @@ import "../../../components/ha-card";
 import "../../../components/ha-icon-button";
 import "../../../components/ha-markdown";
 import "../../../components/ha-switch";
+import { formatAbedomeProductText } from "../../../data/abedome";
 import { domainToName } from "../../../data/integration";
 import type { LabPreviewFeature } from "../../../data/labs";
 import {
@@ -151,11 +152,15 @@ class HaConfigLabs extends SubscribeMixin(LitElement) {
                   <ha-card outlined>
                     <div class="card-content intro-card">
                       <h1>
-                        ${this.hass.localize("ui.panel.config.labs.intro_title")}
+                        ${formatAbedomeProductText(
+                          this.hass.localize("ui.panel.config.labs.intro_title")
+                        )}
                       </h1>
                       <p class="intro-text">
-                        ${this.hass.localize(
-                          "ui.panel.config.labs.intro_description"
+                        ${formatAbedomeProductText(
+                          this.hass.localize(
+                            "ui.panel.config.labs.intro_description"
+                          )
                         )}
                       </p>
                       <ha-alert alert-type="warning">
