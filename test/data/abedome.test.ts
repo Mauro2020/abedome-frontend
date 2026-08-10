@@ -9,6 +9,7 @@ import {
   ABEDOME_SUPERVISOR_TITLE,
   formatAbedomeInstallationMethod,
   formatAbedomePageTitle,
+  formatAbedomeProductText,
 } from "../../src/data/abedome";
 import {
   filterUpdateEntities,
@@ -35,6 +36,32 @@ describe("ABEDOME product labels", () => {
   it("brands browser page titles", () => {
     expect(formatAbedomePageTitle()).toBe(ABEDOME_PRODUCT_NAME);
     expect(formatAbedomePageTitle("Settings")).toBe("Settings – ABEDOME");
+  });
+
+  it("brands generic localized product copy", () => {
+    expect(
+      formatAbedomeProductText(
+        "Home Assistant Labs helps Home Assistant users preview features."
+      )
+    ).toBe("ABEDOME Labs helps ABEDOME users preview features.");
+  });
+
+  it("preserves rich localization placeholders", () => {
+    const icon = { type: "icon" };
+    const localized = [
+      "Home Assistant can help ",
+      icon,
+      " throughout Home Assistant.",
+    ];
+
+    const branded = formatAbedomeProductText(localized);
+
+    expect(branded).toEqual([
+      "ABEDOME can help ",
+      icon,
+      " throughout ABEDOME.",
+    ]);
+    expect(branded[1]).toBe(icon);
   });
 
   it("shows the branded OS installation method", () => {

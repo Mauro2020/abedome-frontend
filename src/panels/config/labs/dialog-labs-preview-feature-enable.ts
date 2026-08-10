@@ -12,6 +12,7 @@ import type { HaSwitch } from "../../../components/ha-switch";
 import "../../../components/ha-switch";
 import type { BackupConfig } from "../../../data/backup";
 import { fetchBackupConfig } from "../../../data/backup";
+import { formatAbedomeProductText } from "../../../data/abedome";
 import { getSupervisorUpdateConfig } from "../../../data/supervisor/update";
 import type { HassDialog } from "../../../dialogs/make-dialog-manager";
 import type { HomeAssistant } from "../../../types";
@@ -88,8 +89,10 @@ export class DialogLabsPreviewFeatureEnable
     ) {
       return {
         title: this.hass.localize("ui.panel.config.labs.create_backup.manual"),
-        description: this.hass.localize(
-          "ui.panel.config.labs.create_backup.manual_description"
+        description: formatAbedomeProductText(
+          this.hass.localize(
+            "ui.panel.config.labs.create_backup.manual_description"
+          )
         ),
       };
     }
