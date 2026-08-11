@@ -4427,7 +4427,7 @@
           "section": {
             "core": {
               "header": "General configuration",
-              "introduction": "Manage your location, network, and analytics.",
+              "introduction": "Manage your location and network settings.",
               "core_config": {
                 "edit_requires_storage": "You cannot change these settings in the UI, as you have config stored in 'configuration.yaml' under the 'homeassistant' key.",
                 "location_name": "Name",
@@ -7785,10 +7785,6 @@
             "visualization_description": "Visualize the network topology and device connections",
             "statistics_description": "View adapter and network communication statistics",
             "logs_description": "View and download Z-Wave logs",
-            "analytics_title": "Analytics",
-            "analytics_description": "Share anonymized telemetry and statistics with Z-Wave JS",
-            "analytics_on": "On",
-            "analytics_off": "Off",
             "driver_version": "Driver version",
             "server_version": "Server version",
             "home_id": "Home ID",
@@ -7827,7 +7823,9 @@
               "info": "Enable the reporting of anonymized telemetry and statistics to the Z-Wave JS organization. This data will be used to focus development efforts and improve the user experience. Information about the data that is collected and how it is used, including an example of the data collected, can be found in the {documentation_link}.",
               "documentation_link": "Z-Wave JS data collection documentation",
               "toggle_title": "Data reporting",
-              "toggle_description": "Share anonymized telemetry and statistics with Z-Wave JS"
+              "toggle_description": "Share anonymized telemetry and statistics with Z-Wave JS",
+              "unavailable": "Unavailable. Refresh to try again.",
+              "update_failed": "Failed to update Z-Wave JS data reporting"
             },
             "statistics": {
               "title": "Adapter statistics",

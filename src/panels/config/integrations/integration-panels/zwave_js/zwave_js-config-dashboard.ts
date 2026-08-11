@@ -18,6 +18,7 @@ import type { UnsubscribeFunc } from "home-assistant-js-websocket";
 import type { CSSResultGroup, TemplateResult } from "lit";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, query, state } from "lit/decorators";
+import type { HASSDomCurrentTargetEvent } from "../../../../../common/dom/fire_event";
 import { goBack } from "../../../../../common/navigate";
 import "../../../../../components/ha-button";
 import "../../../../../components/ha-card";
@@ -27,6 +28,8 @@ import "../../../../../components/ha-md-list";
 import "../../../../../components/ha-md-list-item";
 import "../../../../../components/ha-spinner";
 import "../../../../../components/ha-svg-icon";
+import "../../../../../components/ha-switch";
+import type { HaSwitch } from "../../../../../components/ha-switch";
 import "../../../../../components/progress/ha-progress-ring";
 import type { ConfigEntry } from "../../../../../data/config_entries";
 import {
@@ -46,6 +49,7 @@ import {
   NodeStatus,
   ProvisioningEntryStatus,
   restoreZwaveNVM,
+  setZwaveDataCollectionPreference,
   subscribeS2Inclusion,
   subscribeZwaveNVMBackup,
 } from "../../../../../data/zwave_js";
@@ -81,6 +85,10 @@ class ZWaveJSConfigDashboard extends SubscribeMixin(LitElement) {
   @state() private _status?: ZWaveJSClient["state"];
 
   @state() private _dataCollectionOptIn?: boolean;
+
+  @state() private _dataCollectionStatusUnavailable = false;
+
+  @state() private _dataCollectionUpdating = false;
 
   @state() private _multipleNetworks = false;
 
@@ -414,28 +422,50 @@ class ZWaveJSConfigDashboard extends SubscribeMixin(LitElement) {
               </div>
               <ha-icon-next slot="end"></ha-icon-next>
             </ha-md-list-item>
-            <ha-md-list-item type="link" href="/config/analytics?section=zwave">
+            <ha-md-list-item>
               <ha-svg-icon slot="start" .path=${mdiChartBox}></ha-svg-icon>
               <div slot="headline">
                 ${this.hass.localize(
-                  "ui.panel.config.zwave_js.dashboard.analytics_title"
+                  "ui.panel.config.zwave_js.dashboard.data_collection.title"
                 )}
               </div>
               <div slot="supporting-text">
                 ${this.hass.localize(
-                  "ui.panel.config.zwave_js.dashboard.analytics_description"
+                  "ui.panel.config.zwave_js.dashboard.data_collection.info",
+                  {
+                    documentation_link: html`<a
+                      target="_blank"
+                      href="https://zwave-js.github.io/node-zwave-js/#/data-collection/data-collection"
+                      rel="noreferrer noopener"
+                      >${this.hass.localize(
+                        "ui.panel.config.zwave_js.dashboard.data_collection.documentation_link"
+                      )}</a
+                    >`,
+                  }
                 )}
               </div>
-              <span slot="end">
-                ${
-                  this._dataCollectionOptIn !== undefined
-                    ? this.hass.localize(
-                        `ui.panel.config.zwave_js.dashboard.analytics_${this._dataCollectionOptIn ? "on" : "off"}`
-                      )
-                    : nothing
-                }
-              </span>
-              <ha-icon-next slot="end"></ha-icon-next>
+              ${
+                this._dataCollectionOptIn === undefined
+                  ? this._dataCollectionStatusUnavailable
+                    ? html`<span slot="end" class="data-collection-unavailable">
+                        ${this.hass.localize(
+                          "ui.panel.config.zwave_js.dashboard.data_collection.unavailable"
+                        )}
+                      </span>`
+                    : html`<ha-spinner slot="end" size="small"></ha-spinner>`
+                  : html`<ha-switch
+                      slot="end"
+                      .checked=${this._dataCollectionOptIn}
+                      .disabled=${this._dataCollectionUpdating}
+                      @change=${this._dataCollectionToggled}
+                    >
+                      <span class="visually-hidden">
+                        ${this.hass.localize(
+                          "ui.panel.config.zwave_js.dashboard.data_collection.toggle_title"
+                        )}
+                      </span>
+                    </ha-switch>`
+              }
             </ha-md-list-item>
             <ha-md-list-item
               type="link"
@@ -667,6 +697,7 @@ class ZWaveJSConfigDashboard extends SubscribeMixin(LitElement) {
         entry_id: this.configEntryId,
       }),
       fetchZwaveProvisioningEntries(this.hass!, this.configEntryId),
+      this._loadDataCollectionStatus(),
     ]);
 
     this._provisioningEntries = provisioningEntries;
@@ -674,6 +705,11 @@ class ZWaveJSConfigDashboard extends SubscribeMixin(LitElement) {
     this._network = network;
 
     this._status = this._network.client.state;
+  };
+
+  private async _loadDataCollectionStatus(): Promise<void> {
+    this._dataCollectionOptIn = undefined;
+    this._dataCollectionStatusUnavailable = false;
 
     try {
       const status = await fetchZwaveDataCollectionStatus(
@@ -683,12 +719,40 @@ class ZWaveJSConfigDashboard extends SubscribeMixin(LitElement) {
       this._dataCollectionOptIn =
         status.opted_in === true || status.enabled === true;
     } catch {
-      // Data collection status is optional
+      this._dataCollectionStatusUnavailable = true;
     }
-  };
+  }
 
   private async _addNodeClicked() {
     this._openInclusionDialog();
+  }
+
+  private async _dataCollectionToggled(
+    ev: HASSDomCurrentTargetEvent<HaSwitch>
+  ): Promise<void> {
+    const previousPreference = this._dataCollectionOptIn!;
+    const preference = ev.currentTarget.checked;
+    this._dataCollectionOptIn = preference;
+    this._dataCollectionUpdating = true;
+
+    try {
+      await setZwaveDataCollectionPreference(
+        this.hass,
+        this.configEntryId,
+        preference
+      );
+    } catch (err: any) {
+      this._dataCollectionOptIn = previousPreference;
+      showAlertDialog(this, {
+        title: this.hass.localize(
+          "ui.panel.config.zwave_js.dashboard.data_collection.update_failed"
+        ),
+        text: err.message,
+        warning: true,
+      });
+    } finally {
+      this._dataCollectionUpdating = false;
+    }
   }
 
   private async _removeNodeClicked() {
@@ -933,6 +997,24 @@ class ZWaveJSConfigDashboard extends SubscribeMixin(LitElement) {
 
         .nav-card .card-content {
           padding: 0;
+        }
+
+        .data-collection-unavailable {
+          color: var(--secondary-text-color);
+          max-width: 120px;
+          text-align: end;
+        }
+
+        /* Accessibility */
+        .visually-hidden {
+          position: absolute;
+          overflow: hidden;
+          clip: rect(0 0 0 0);
+          height: 1px;
+          width: 1px;
+          margin: -1px;
+          padding: 0;
+          border: 0;
         }
 
         .network-status div.heading {
