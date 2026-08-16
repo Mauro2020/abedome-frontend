@@ -5,6 +5,7 @@ import { customElement, property, query, state } from "lit/decorators";
 import { fireEvent } from "../common/dom/fire_event";
 import type { LocalizeFunc } from "../common/translations/localize";
 import { debounce } from "../common/util/debounce";
+import "../components/ha-alert";
 import "../components/ha-button";
 import "../components/ha-form/ha-form";
 import type { HaForm } from "../components/ha-form/ha-form";
@@ -211,12 +212,48 @@ class OnboardingCreateUser extends LitElement {
         type: "user",
         result,
       });
-    } catch (err: any) {
-      // eslint-disable-next-line
-      console.error(err);
+    } catch (err: unknown) {
       this._loading = false;
-      this._errorMsg = err.body.message;
+      this._errorMsg = this._errorMessage(err);
     }
+  }
+
+  private _errorMessage(err: unknown): string {
+    if (typeof err === "object" && err !== null) {
+      if ("body" in err) {
+        const { body } = err;
+
+        if (
+          typeof body === "object" &&
+          body !== null &&
+          "message" in body &&
+          typeof body.message === "string" &&
+          body.message
+        ) {
+          return body.message;
+        }
+      }
+    }
+
+    if (err instanceof Error && err.message) {
+      return err.message;
+    }
+
+    if (typeof err === "object" && err !== null) {
+      if ("body" in err) {
+        const { body } = err;
+
+        if (typeof body === "string" && body) {
+          return body;
+        }
+      }
+
+      if ("error" in err && typeof err.error === "string" && err.error) {
+        return err.error;
+      }
+    }
+
+    return this.localize("ui.common.unknown_error");
   }
 
   static get styles(): CSSResultGroup {
