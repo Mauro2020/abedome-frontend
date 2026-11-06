@@ -73,8 +73,15 @@ jobs:
           project = tomllib.loads(pathlib.Path("pyproject.toml").read_text())
           wheel = next(pathlib.Path("dist").glob("abedome_frontend-*.whl"))
           with zipfile.ZipFile(wheel) as archive:
-              names = archive.namelist()
-          assert any(name.startswith("hass_frontend/") for name in names)
+              names = set(archive.namelist())
+          fonts = {
+              name
+              for name in names
+              if name.startswith("hass_frontend/static/fonts/roboto/")
+          }
+          assert "hass_frontend/static/fonts/roboto/Roboto-Bold.woff2" in fonts
+          assert len(fonts) == 12
+          assert all(name.endswith(".woff2") for name in fonts)
           print(f"Built {project['project']['name']} {project['project']['version']}: {wheel.name}")
           PY
 
