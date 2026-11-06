@@ -1,4 +1,5 @@
 import type { HassEntity } from "home-assistant-js-websocket";
+import type { PropertyValues } from "lit";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import { classMap } from "lit/directives/class-map";
@@ -7,7 +8,6 @@ import { styleMap } from "lit/directives/style-map";
 import memoizeOne from "memoize-one";
 import { computeCssColor } from "../../../common/color/compute-color";
 import { hsv2rgb, rgb2hex, rgb2hsv } from "../../../common/color/convert-color";
-import { DOMAINS_TOGGLE } from "../../../common/const";
 import { computeDomain } from "../../../common/entity/compute_domain";
 import { stateActive } from "../../../common/entity/state_active";
 import { stateColorCss } from "../../../common/entity/state_color";
@@ -17,11 +17,15 @@ import "../../../components/tile/ha-tile-badge";
 import "../../../components/tile/ha-tile-container";
 import "../../../components/tile/ha-tile-icon";
 import "../../../components/tile/ha-tile-info";
-import { cameraUrlWithWidthHeight } from "../../../data/camera";
+import { timerJustFinished } from "../../../data/timer";
 import type { ActionHandlerEvent } from "../../../data/lovelace/action_handler";
 import "../../../state-display/state-display";
 import type { HomeAssistant } from "../../../types";
 import "../card-features/hui-card-features";
+import {
+  computeCardFeatureLayout,
+  computeCardFeatureRows,
+} from "../card-features/common/feature-layout";
 import type { LovelaceCardFeatureContext } from "../card-features/types";
 import { findEntities } from "../common/find-entities";
 import { handleAction } from "../common/handle-action";
@@ -33,17 +37,15 @@ import type {
   LovelaceGridOptions,
 } from "../types";
 import { renderTileBadge } from "./tile/badges/tile-badge";
+import {
+  getTileActionDefaults,
+  getTileIconActionConfig,
+  getTileImageUrl,
+  hasTileCardAction,
+  hasTileIconAction,
+} from "./tile/tile-card-helpers";
 import { tileCardStyle } from "./tile/tile-card-style";
 import type { TileCardConfig } from "./types";
-
-export const getEntityDefaultTileIconAction = (entityId: string) => {
-  const domain = computeDomain(entityId);
-  const supportsIconAction =
-    DOMAINS_TOGGLE.has(domain) ||
-    ["button", "input_button", "scene"].includes(domain);
-
-  return supportsIconAction ? "toggle" : "none";
-};
 
 @customElement("hui-tile-card")
 export class HuiTileCard extends LitElement implements LovelaceCard {
@@ -87,18 +89,38 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
 
   @state() private _featureContext: LovelaceCardFeatureContext = {};
 
+  @state() private _timerFinished = false;
+
+  protected willUpdate(changedProps: PropertyValues): void {
+    super.willUpdate(changedProps);
+    if (
+      !changedProps.has("hass") ||
+      !this._config?.entity ||
+      computeDomain(this._config.entity) !== "timer"
+    ) {
+      return;
+    }
+    const stateObj = this.hass?.states[this._config.entity];
+    const oldStateObj = (changedProps.get("hass") as HomeAssistant | undefined)
+      ?.states[this._config.entity];
+    if (stateObj && timerJustFinished(oldStateObj, stateObj)) {
+      this._timerFinished = true;
+    }
+  }
+
+  private _timerFinishedAnimationEnded(ev: AnimationEvent): void {
+    if (ev.animationName === "timer-finished-pulse") {
+      this._timerFinished = false;
+    }
+  }
+
   public setConfig(config: TileCardConfig): void {
     if (!config.entity) {
       throw new Error("Specify an entity");
     }
 
     this._config = {
-      tap_action: {
-        action: "more-info",
-      },
-      icon_tap_action: {
-        action: getEntityDefaultTileIconAction(config.entity),
-      },
+      ...getTileActionDefaults(config.entity),
       ...config,
     };
     this._featureContext = {
@@ -107,14 +129,8 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
   }
 
   public getCardSize(): number {
-    const featuresPosition =
-      this._config && this._featurePosition(this._config);
-    const featuresCount = this._config?.features?.length || 0;
-    return (
-      1 +
-      (this._config?.vertical ? 1 : 0) +
-      (featuresPosition === "inline" ? 0 : featuresCount)
-    );
+    const featureRows = this._config ? this._featureRows(this._config) : 0;
+    return 1 + (this._config?.vertical ? 1 : 0) + featureRows;
   }
 
   public getGridOptions(): LovelaceGridOptions {
@@ -123,12 +139,11 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
     let rows = 1;
     const featurePosition = this._config && this._featurePosition(this._config);
     const featuresCount = this._config?.features?.length || 0;
-    if (featuresCount) {
+    if (this._config && featuresCount) {
       if (featurePosition === "inline") {
         min_columns = 12;
-      } else {
-        rows += featuresCount;
       }
+      rows += this._featureRows(this._config);
     }
 
     if (this._config?.vertical) {
@@ -143,34 +158,41 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
     };
   }
 
+  private _computeIconLabel(name: string, domain: string) {
+    if (this._config?.icon_tap_action?.action !== "toggle") {
+      return name;
+    }
+    const key = ["button", "input_button"].includes(domain)
+      ? "icon_press"
+      : domain === "scene"
+        ? "icon_activate"
+        : "icon_toggle";
+    return this.hass!.localize(`ui.card.tile.${key}`, { name });
+  }
+
   private _handleAction(ev: ActionHandlerEvent) {
     handleAction(this, this.hass!, this._config!, ev.detail.action!);
   }
 
   private _handleIconAction(ev: ActionHandlerEvent) {
     ev.stopPropagation();
-    const config = {
-      entity: this._config!.entity,
-      tap_action: this._config!.icon_tap_action,
-      hold_action: this._config!.icon_hold_action,
-      double_tap_action: this._config!.icon_double_tap_action,
-    };
-    handleAction(this, this.hass!, config, ev.detail.action!);
-  }
 
-  private _getImageUrl(entity: HassEntity): string | undefined {
-    const entityPicture =
-      entity.attributes.entity_picture_local ||
-      entity.attributes.entity_picture;
+    // The icon only has a hold or double tap action, so a tap belongs to the card
+    if (
+      ev.detail.action === "tap" &&
+      !hasAction(this._config?.icon_tap_action)
+    ) {
+      this._handleAction(ev);
 
-    if (!entityPicture) return undefined;
-
-    let imageUrl = this.hass!.hassUrl(entityPicture);
-    if (computeDomain(entity.entity_id) === "camera") {
-      imageUrl = cameraUrlWithWidthHeight(imageUrl, 80, 80);
+      return;
     }
 
-    return imageUrl;
+    handleAction(
+      this,
+      this.hass!,
+      getTileIconActionConfig(this._config!.entity, this._config!),
+      ev.detail.action!
+    );
   }
 
   private _computeStateColor = memoizeOne(
@@ -212,21 +234,6 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
     }
   );
 
-  private get _hasCardAction() {
-    return (
-      !this._config?.tap_action ||
-      hasAction(this._config?.tap_action) ||
-      hasAction(this._config?.hold_action) ||
-      hasAction(this._config?.double_tap_action)
-    );
-  }
-
-  private get _hasIconAction() {
-    return (
-      !this._config?.icon_tap_action || hasAction(this._config?.icon_tap_action)
-    );
-  }
-
   private _featurePosition = memoizeOne((config: TileCardConfig) => {
     if (config.vertical) {
       return "bottom";
@@ -234,15 +241,13 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
     return config.features_position || "bottom";
   });
 
-  private _displayedFeatures = memoizeOne((config: TileCardConfig) => {
-    const features = config.features || [];
-    const featurePosition = this._featurePosition(config);
+  private _featureLayout = memoizeOne((config: TileCardConfig) =>
+    computeCardFeatureLayout(config.features, this._featurePosition(config))
+  );
 
-    if (featurePosition === "inline") {
-      return features.slice(0, 1);
-    }
-    return features;
-  });
+  private _featureRows = memoizeOne((config: TileCardConfig) =>
+    computeCardFeatureRows(config.features, this._featurePosition(config))
+  );
 
   protected render() {
     if (!this._config || !this.hass) {
@@ -253,8 +258,8 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
 
     if (!stateObj) {
       return html`
-        <hui-warning .hass=${this.hass}>
-          ${createEntityNotFoundWarning(this.hass, this._config.entity)}
+        <hui-warning>
+          ${createEntityNotFoundWarning(this.hass.localize, this.hass.config)}
         </hui-warning>
       `;
     }
@@ -270,7 +275,6 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
       : html`
           <state-display
             .stateObj=${stateObj}
-            .hass=${this.hass}
             .content=${this._config.state_content}
             .timeFormat=${this._config.time_format}
           >
@@ -282,24 +286,30 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
     };
 
     const imageUrl = this._config.show_entity_picture
-      ? this._getImageUrl(stateObj)
+      ? getTileImageUrl(this.hass, stateObj)
       : undefined;
 
     const featurePosition = this._featurePosition(this._config);
-    const features = this._displayedFeatures(this._config);
+    const features = this._featureLayout(this._config);
 
     const hasImage = Boolean(imageUrl);
+    const hasFeatures = features.inline.length > 0 || features.below.length > 0;
 
     const fixedInfoHeight =
       this.layout === "grid" && this._config.grid_options?.rows !== "auto";
 
     return html`
-      <ha-card style=${styleMap(style)} class=${classMap({ active })}>
+      <ha-card
+        style=${styleMap(style)}
+        class=${classMap({ active })}
+        role=${ifDefined(hasFeatures ? "group" : undefined)}
+        aria-labelledby=${ifDefined(hasFeatures ? "name" : undefined)}
+      >
         <ha-tile-container
           .featurePosition=${featurePosition}
           .vertical=${Boolean(this._config.vertical)}
           .fixedInfoHeight=${fixedInfoHeight}
-          .interactive=${this._hasCardAction}
+          .interactive=${hasTileCardAction(this._config)}
           .actionHandlerOptions=${{
             hasHold: hasAction(this._config!.hold_action),
             hasDoubleClick: hasAction(this._config!.double_tap_action),
@@ -313,11 +323,16 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
               hasHold: hasAction(this._config!.icon_hold_action),
               hasDoubleClick: hasAction(this._config!.icon_double_tap_action),
             }}
-            .interactive=${this._hasIconAction}
+            .interactive=${hasTileIconAction(this._config)}
+            .accessibleLabel=${this._computeIconLabel(name, domain)}
             .imageUrl=${imageUrl}
             data-domain=${ifDefined(domain)}
             data-state=${ifDefined(stateObj?.state)}
-            class=${classMap({ image: hasImage })}
+            class=${classMap({
+              image: hasImage,
+              "timer-finished": this._timerFinished,
+            })}
+            @animationend=${this._timerFinishedAnimationEnded}
           >
             ${
               hasImage
@@ -333,7 +348,7 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
             ${renderTileBadge(stateObj, this.hass)}
           </ha-tile-icon>
           <ha-tile-info slot="info">
-            <span slot="primary" class="primary">${name}</span>
+            <span slot="primary" class="primary" id="name">${name}</span>
             ${
               stateDisplay
                 ? html`<span slot="secondary">${stateDisplay}</span>`
@@ -341,14 +356,28 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
             }
           </ha-tile-info>
           ${
-            features.length > 0
+            features.inline.length > 0
               ? html`
                   <hui-card-features
-                    slot="features"
+                    slot="features-inline"
                     .hass=${this.hass}
                     .context=${this._featureContext}
                     .color=${this._config.color}
-                    .features=${features}
+                    .features=${features.inline}
+                  ></hui-card-features>
+                `
+              : nothing
+          }
+          ${
+            features.below.length > 0
+              ? html`
+                  <hui-card-features
+                    slot="features"
+                    .columns=${features.columns}
+                    .hass=${this.hass}
+                    .context=${this._featureContext}
+                    .color=${this._config.color}
+                    .features=${features.below}
                   ></hui-card-features>
                 `
               : nothing
@@ -385,6 +414,29 @@ export class HuiTileCard extends LitElement implements LovelaceCard {
         animation: pulse 1s infinite;
       }
 
+      ha-tile-icon.timer-finished {
+        animation: timer-finished-pulse 0.5s ease-in-out 2;
+      }
+
+      @keyframes timer-finished-pulse {
+        50% {
+          --tile-icon-color: var(--error-color);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        ha-tile-icon.timer-finished {
+          animation-duration: var(--ha-animation-duration-none);
+        }
+      }
+
+      /* Pictures are rounded squares, matching avatars elsewhere */
+      ha-tile-icon.image {
+        --tile-icon-border-radius: var(
+          --ha-tile-icon-border-radius,
+          var(--ha-picture-border-radius)
+        );
+      }
       /* Make sure we display the whole image */
       ha-tile-icon.image[data-domain="update"] {
         --tile-icon-border-radius: var(--ha-border-radius-square);

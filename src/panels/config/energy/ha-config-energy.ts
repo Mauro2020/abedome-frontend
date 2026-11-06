@@ -33,6 +33,7 @@ import "./components/ha-energy-device-settings";
 import "./components/ha-energy-device-settings-water";
 import "./components/ha-energy-grid-settings";
 import "./components/ha-energy-solar-settings";
+import "./components/ha-energy-home-settings";
 import "./components/ha-energy-battery-settings";
 import "./components/ha-energy-gas-settings";
 import "./components/ha-energy-water-settings";
@@ -77,8 +78,6 @@ class HaConfigEnergy extends LitElement {
   @property({ attribute: "is-wide", type: Boolean }) public isWide = false;
 
   @property({ attribute: false }) public route!: Route;
-
-  @state() private _searchParms = new URLSearchParams(window.location.search);
 
   @state() private _info?: EnergyInfo;
 
@@ -126,11 +125,7 @@ class HaConfigEnergy extends LitElement {
     return html`
       <hass-tabs-subpage
         .hass=${this.hass}
-        .backPath=${
-          this._searchParms.has("historyBack")
-            ? undefined
-            : "/config/lovelace/dashboards"
-        }
+        back-path="/config/lovelace/dashboards"
         .route=${this.route}
         .tabs=${TABS}
       >
@@ -177,6 +172,12 @@ class HaConfigEnergy extends LitElement {
             .info=${this._info}
             @value-changed=${this._prefsChanged}
           ></ha-energy-solar-settings>
+          <ha-energy-home-settings
+            .hass=${this.hass}
+            .preferences=${this._preferences!}
+            .validationResult=${this._validationResult}
+            @value-changed=${this._prefsChanged}
+          ></ha-energy-home-settings>
           <ha-energy-battery-settings
             .hass=${this.hass}
             .preferences=${this._preferences!}
@@ -228,9 +229,9 @@ class HaConfigEnergy extends LitElement {
     this._error = undefined;
 
     const validationPromise = getEnergyPreferenceValidation(this.hass);
-    const energyInfoPromise = await getEnergyInfo(this.hass);
+    const energyInfoPromise = await getEnergyInfo(this.hass.callWS);
     try {
-      this._preferences = await getEnergyPreferences(this.hass);
+      this._preferences = await getEnergyPreferences(this.hass.callWS);
     } catch (err: any) {
       if (err.code === "not_found") {
         this._preferences = INITIAL_CONFIG;
@@ -255,7 +256,7 @@ class HaConfigEnergy extends LitElement {
     } catch (err: any) {
       this._error = err.message;
     }
-    this._info = await getEnergyInfo(this.hass);
+    this._info = await getEnergyInfo(this.hass.callWS);
     await this._fetchMetaData();
   }
 
@@ -264,7 +265,10 @@ class HaConfigEnergy extends LitElement {
       return;
     }
     const statIDs = getReferencedStatisticIds(this._preferences, this._info);
-    const statsMetadataArray = await getStatisticMetadata(this.hass, statIDs);
+    const statsMetadataArray = await getStatisticMetadata(
+      this.hass.callWS,
+      statIDs
+    );
     const statsMetadata: Record<string, StatisticsMetaData> = {};
     statsMetadataArray.forEach((x) => {
       statsMetadata[x.statistic_id] = x;
@@ -335,6 +339,7 @@ class HaConfigEnergy extends LitElement {
 
         ha-energy-grid-settings,
         ha-energy-solar-settings,
+        ha-energy-home-settings,
         ha-energy-battery-settings,
         ha-energy-gas-settings,
         ha-energy-water-settings,

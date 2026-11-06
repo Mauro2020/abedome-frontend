@@ -88,11 +88,7 @@ class DialogDeviceRegistryDetail extends DirtyStateProviderMixin<DeviceFormState
     return html`
       <ha-adaptive-dialog
         .open=${this._open}
-        header-title=${computeDeviceNameDisplay(
-          device,
-          this.hass.localize,
-          this.hass.states
-        )}
+        header-title=${computeDeviceNameDisplay(device, this.hass.localize)}
         .preventScrimClose=${this.isDirtyState}
         @closed=${this._dialogClosed}
       >
@@ -118,14 +114,16 @@ class DialogDeviceRegistryDetail extends DirtyStateProviderMixin<DeviceFormState
               @value-changed=${this._areaPicked}
             ></ha-area-picker>
             <ha-labels-picker
-              .hass=${this.hass}
               .value=${this._labels}
               @value-changed=${this._labelsChanged}
             ></ha-labels-picker>
             <div class="row">
               <ha-switch
                 .checked=${!this._disabledBy}
-                .disabled=${this._params.device.disabled_by === "config_entry"}
+                .disabled=${
+                  this._params.device.disabled_by === "config_entry" ||
+                  this._params.device.disabled_by === "device"
+                }
                 @change=${this._disabledByChanged}
               >
               </ha-switch>

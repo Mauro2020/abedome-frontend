@@ -15,6 +15,7 @@ import type { HaInput } from "../../components/input/ha-input";
 import { assistSatelliteSupportsSetupFlow } from "../../data/assist_satellite";
 import { getConfigEntries } from "../../data/config_entries";
 import type { DataEntryFlowStepCreateEntry } from "../../data/data_entry_flow";
+import type { ConfigEntry } from "../../data/config_entries";
 import type { DeviceRegistryEntry } from "../../data/device/device_registry";
 import { updateDeviceRegistryEntry } from "../../data/device/device_registry";
 import {
@@ -40,7 +41,8 @@ class StepFlowCreateEntry extends LitElement {
 
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  @property({ attribute: false }) public step!: DataEntryFlowStepCreateEntry;
+  @property({ attribute: false })
+  public step!: DataEntryFlowStepCreateEntry<ConfigEntry>;
 
   @property({ attribute: false }) public devices!: DeviceRegistryEntry[];
 
@@ -79,7 +81,7 @@ class StepFlowCreateEntry extends LitElement {
     if (
       this.devices.length !== 1 ||
       this.devices[0].primary_config_entry !== this.step.result?.entry_id ||
-      this.step.result.domain === "voip"
+      this.step.result?.domain === "voip"
     ) {
       return;
     }
@@ -181,11 +183,7 @@ class StepFlowCreateEntry extends LitElement {
                             .label=${localize(
                               "ui.panel.config.integrations.config_flow.device_name"
                             )}
-                            .placeholder=${computeDeviceNameDisplay(
-                              device,
-                              this.hass.localize,
-                              this.hass.states
-                            )}
+                            .placeholder=${computeDeviceNameDisplay(device, this.hass.localize)}
                             .value=${
                               this._deviceUpdate[device.id]?.name ??
                               computeDeviceName(device)
@@ -230,13 +228,9 @@ class StepFlowCreateEntry extends LitElement {
 
   private async _flowDone(): Promise<void> {
     if (Object.keys(this._deviceUpdate).length) {
-      const renamedDevices: string[] = [];
       const deviceUpdates = Object.entries(this._deviceUpdate).map(
-        ([deviceId, update]) => {
-          if (update.name) {
-            renamedDevices.push(deviceId);
-          }
-          return updateDeviceRegistryEntry(this.hass, deviceId, {
+        ([deviceId, update]) =>
+          updateDeviceRegistryEntry(this.hass, deviceId, {
             name_by_user: update.name,
             area_id: update.area,
           }).catch((err: unknown) => {
@@ -248,13 +242,16 @@ class StepFlowCreateEntry extends LitElement {
                 { error: message }
               ),
             });
-          });
-        }
+          })
       );
       await Promise.allSettled(deviceUpdates);
+
+      // Entity IDs include the device's name and, depending on the user's
+      // entity ID format, its area, so regenerate them for every device
+      // whose name or area was edited.
       const entityUpdates: Promise<unknown>[] = [];
       const entityIds: string[] = [];
-      renamedDevices.forEach((deviceId) => {
+      Object.keys(this._deviceUpdate).forEach((deviceId) => {
         const entities = this._deviceEntities(
           deviceId,
           Object.values(this.hass.entities)

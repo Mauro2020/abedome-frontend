@@ -12,7 +12,6 @@ import { customElement, property, query, state } from "lit/decorators";
 import { classMap } from "lit/directives/class-map";
 import memoizeOne from "memoize-one";
 import { fireEvent } from "../common/dom/fire_event";
-import { toggleAttribute } from "../common/dom/toggle_attribute";
 import { stringCompare } from "../common/string/compare";
 import { computeRTL } from "../common/util/compute_rtl";
 import { throttle } from "../common/util/throttle";
@@ -297,7 +296,7 @@ class HaSidebar extends SubscribeMixin(ScrollableFadeMixin(LitElement)) {
   protected updated(changedProps: PropertyValues<this>) {
     super.updated(changedProps);
     if (changedProps.has("alwaysExpand")) {
-      toggleAttribute(this, "expanded", this.alwaysExpand);
+      this.toggleAttribute("expanded", this.alwaysExpand);
     }
     if (!changedProps.has("hass")) {
       return;
@@ -665,9 +664,8 @@ class HaSidebar extends SubscribeMixin(ScrollableFadeMixin(LitElement)) {
           display: flex;
           flex-direction: column;
           overflow: hidden;
-          -ms-user-select: none;
-          -webkit-user-select: none;
-          -moz-user-select: none;
+          overscroll-behavior: contain;
+          user-select: none;
           background-color: var(--sidebar-background-color);
           width: 100%;
           box-sizing: border-box;
@@ -882,13 +880,16 @@ class HaSidebar extends SubscribeMixin(ScrollableFadeMixin(LitElement)) {
           pointer-events: none;
         }
 
+        /* Keep the rounded-square avatar clear of the row edges and
+           centered in the collapsed item: 8px + 32px + 8px = 48px */
         ha-user-badge {
-          width: 40px;
-          height: 40px;
+          width: var(--ha-space-8);
+          height: var(--ha-space-8);
+          flex-shrink: 0;
         }
 
         ha-list-item-button.user {
-          --ha-row-item-padding-inline: var(--ha-space-1) 0;
+          --ha-row-item-padding-inline: var(--ha-space-2) 0;
         }
 
         .spacer {
@@ -897,7 +898,6 @@ class HaSidebar extends SubscribeMixin(ScrollableFadeMixin(LitElement)) {
         }
 
         .menu ha-icon-button {
-          -webkit-transform: scaleX(var(--scale-direction));
           transform: scaleX(var(--scale-direction));
         }
 

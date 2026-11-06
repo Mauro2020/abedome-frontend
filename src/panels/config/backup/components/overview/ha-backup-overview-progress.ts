@@ -29,27 +29,36 @@ interface ProgressSegment {
   label: string;
   state: SegmentState;
   flex: number;
+  progress?: number;
 }
 
 const HA_STAGES: CreateBackupStage[] = ["home_assistant"];
 
-const ADDON_STAGES: CreateBackupStage[] = [
-  "addons",
-  "apps",
+// Quick metadata writes emitted while the backup is initialized, before the
+// Home Assistant stage (docker_config only by older Supervisors)
+const SETUP_STAGES: CreateBackupStage[] = [
   "addon_repositories",
   "app_repositories",
   "docker_config",
+];
+
+const ADDON_STAGES: CreateBackupStage[] = ["addons", "apps"];
+
+const MEDIA_STAGES: CreateBackupStage[] = ["folders", "finishing_file"];
+
+// Emitted after the backup file is finished, when the backend waits for
+// cold-backup add-ons to come back up
+const AWAIT_RESTART_STAGES: CreateBackupStage[] = [
   "await_addon_restarts",
   "await_app_restarts",
 ];
 
-const MEDIA_STAGES: CreateBackupStage[] = ["folders", "finishing_file"];
-
-// Ordered groups matching actual backend execution order
+// Ordered groups matching actual backend execution order. The await restart
+// stages share the last creation group to keep the progress monotonic.
 const STAGE_ORDER: CreateBackupStage[][] = [
+  [...SETUP_STAGES, ...HA_STAGES],
   ADDON_STAGES,
-  MEDIA_STAGES,
-  HA_STAGES,
+  [...MEDIA_STAGES, ...AWAIT_RESTART_STAGES],
   ["upload_to_agents"],
   ["cleaning_up"],
 ];
@@ -85,7 +94,7 @@ export class HaBackupOverviewProgress extends LitElement {
 
   private get _heading() {
     const managerState = this.manager.manager_state;
-    if (managerState === "idle") {
+    if (managerState === "idle" || managerState === "blocked") {
       return "";
     }
     return this.hass.localize(
@@ -94,7 +103,10 @@ export class HaBackupOverviewProgress extends LitElement {
   }
 
   private get _isUploadStage(): boolean {
-    if (this.manager.manager_state === "idle") {
+    if (
+      this.manager.manager_state === "idle" ||
+      this.manager.manager_state === "blocked"
+    ) {
       return false;
     }
     return this.manager.stage === "upload_to_agents";
@@ -128,10 +140,27 @@ export class HaBackupOverviewProgress extends LitElement {
 
   private _computeAgentPercent(agentId: string): number | undefined {
     const progress = this.uploadProgress[agentId];
-    if (!progress || progress.total_bytes === 0) {
+    // 0 bytes only means the upload started; the agent may never report more.
+    if (
+      !progress ||
+      progress.total_bytes === 0 ||
+      progress.uploaded_bytes === 0
+    ) {
       return undefined;
     }
     return Math.round((progress.uploaded_bytes / progress.total_bytes) * 100);
+  }
+
+  private _computeUploadPercent(): number | undefined {
+    // Follow the slowest location still uploading. Finished ones are left out:
+    // already-written locations report 100% at once, and a location that
+    // doesn't report progress is only known once it has finished.
+    const percents = Object.keys(this.uploadProgress)
+      .map((agentId) => this._computeAgentPercent(agentId))
+      .filter(
+        (percent): percent is number => percent !== undefined && percent < 100
+      );
+    return percents.length ? Math.min(...percents) : undefined;
   }
 
   private _getStageGroupIndex(stage: CreateBackupStage): number {
@@ -158,6 +187,9 @@ export class HaBackupOverviewProgress extends LitElement {
         : null;
 
     const currentGroupIndex = stage ? this._getStageGroupIndex(stage) : -1;
+    const uploadProgress = this._isUploadStage
+      ? this._computeUploadPercent()
+      : undefined;
     const isHassio = isComponentLoaded(this.hass.config, "hassio");
 
     if (isHassio) {
@@ -165,21 +197,21 @@ export class HaBackupOverviewProgress extends LitElement {
       return [
         {
           label: this.hass.localize(
-            "ui.panel.config.backup.overview.progress.segments.apps"
+            "ui.panel.config.backup.overview.progress.segments.home_assistant"
           ),
           state: this._getSegmentState(0, currentGroupIndex),
           flex: 2,
         },
         {
           label: this.hass.localize(
-            "ui.panel.config.backup.overview.progress.segments.media"
+            "ui.panel.config.backup.overview.progress.segments.apps"
           ),
           state: this._getSegmentState(1, currentGroupIndex),
           flex: 2,
         },
         {
           label: this.hass.localize(
-            "ui.panel.config.backup.overview.progress.segments.home_assistant"
+            "ui.panel.config.backup.overview.progress.segments.media"
           ),
           state: this._getSegmentState(2, currentGroupIndex),
           flex: 2,
@@ -190,6 +222,7 @@ export class HaBackupOverviewProgress extends LitElement {
           ),
           state: this._getSegmentState(3, currentGroupIndex),
           flex: 5,
+          progress: uploadProgress,
         },
         {
           label: this.hass.localize(
@@ -201,18 +234,18 @@ export class HaBackupOverviewProgress extends LitElement {
       ];
     }
 
-    // Non-HAOS: No app segment, just Media, HA, Upload and Cleaning up
+    // Non-HAOS: No app segment, just HA, Media, Upload and Cleaning up
     return [
       {
         label: this.hass.localize(
-          "ui.panel.config.backup.overview.progress.segments.media"
+          "ui.panel.config.backup.overview.progress.segments.home_assistant"
         ),
-        state: this._getSegmentState(1, currentGroupIndex),
+        state: this._getSegmentState(0, currentGroupIndex),
         flex: 2,
       },
       {
         label: this.hass.localize(
-          "ui.panel.config.backup.overview.progress.segments.home_assistant"
+          "ui.panel.config.backup.overview.progress.segments.media"
         ),
         state: this._getSegmentState(2, currentGroupIndex),
         flex: 2,
@@ -223,6 +256,7 @@ export class HaBackupOverviewProgress extends LitElement {
         ),
         state: this._getSegmentState(3, currentGroupIndex),
         flex: 5,
+        progress: uploadProgress,
       },
       {
         label: this.hass.localize(
@@ -301,8 +335,18 @@ export class HaBackupOverviewProgress extends LitElement {
                   active: segment.state === "active",
                   completed: segment.state === "completed",
                   pending: segment.state === "pending",
+                  determinate: segment.progress !== undefined,
                 })}"
-              ></div>
+              >
+                ${
+                  segment.progress !== undefined
+                    ? html`<div
+                        class="segment-fill"
+                        style="width: ${segment.progress}%"
+                      ></div>`
+                    : nothing
+                }
+              </div>
               <span class="segment-label">${segment.label}</span>
             </div>
           `
@@ -319,9 +363,12 @@ export class HaBackupOverviewProgress extends LitElement {
       return nothing;
     }
 
-    const hasProgress = Object.keys(this.uploadProgress).length > 0;
+    // Only upload events tell which locations this backup goes to.
+    const agents = this.agents.filter(
+      (agent) => agent.agent_id in this.uploadProgress
+    );
 
-    if (!hasProgress) {
+    if (agents.length === 0) {
       return nothing;
     }
 
@@ -333,7 +380,7 @@ export class HaBackupOverviewProgress extends LitElement {
         }
       >
         <ha-list-base class="agent-list">
-          ${this.agents.map((agent) => {
+          ${agents.map((agent) => {
             const name = computeBackupAgentName(
               this.hass.localize,
               agent.agent_id,
@@ -403,7 +450,6 @@ export class HaBackupOverviewProgress extends LitElement {
 
     return html`
       <ha-backup-summary-card
-        .hass=${this.hass}
         .heading=${this._heading}
         .description=${this._description}
         status="none"
@@ -452,6 +498,18 @@ export class HaBackupOverviewProgress extends LitElement {
         .segment-bar.completed {
           background-color: var(--primary-color);
         }
+        .segment-bar.determinate {
+          background-color: var(--divider-color);
+          animation: none;
+          overflow: hidden;
+        }
+        .segment-fill {
+          height: 100%;
+          border-radius: inherit;
+          background-color: var(--primary-color);
+          transition: width 0.3s ease;
+          animation: pulse 1.5s ease-in-out infinite;
+        }
         .segment-label {
           font-size: var(--ha-font-size-xs);
           color: var(--secondary-text-color);
@@ -471,6 +529,10 @@ export class HaBackupOverviewProgress extends LitElement {
         @media (prefers-reduced-motion: reduce) {
           .segment-bar.active {
             animation: none;
+          }
+          .segment-fill {
+            animation: none;
+            transition: none;
           }
         }
         .agent-list-wrapper {
@@ -521,6 +583,9 @@ export class HaBackupOverviewProgress extends LitElement {
         .progress-percentage {
           font-size: var(--ha-font-size-s);
           color: var(--secondary-text-color);
+        }
+        ha-list-item-base::part(end) {
+          gap: var(--ha-space-2);
         }
         ha-list-item-base::part(supporting-text) {
           display: flex;

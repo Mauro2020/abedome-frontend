@@ -5,6 +5,8 @@ import {
   invalidateThemeCache,
 } from "../common/dom/apply_themes_on_element";
 import { fireEvent } from "../common/dom/fire_event";
+import { computeDeviceName } from "../common/entity/compute_device_name";
+import { computeEntityNameDisplayWithoutContext } from "../common/entity/compute_entity_name_display";
 import { computeFormatFunctions } from "../common/translations/entity-state";
 import { computeLocalize } from "../common/translations/localize";
 import {
@@ -45,10 +47,17 @@ import { demoPanels } from "./demo_panels";
 import { demoServices } from "./demo_services";
 import { ENTITY_COMPONENT_ICONS } from "./entity_component_icons";
 import { getEntity } from "./entities/registry";
+import type { MockBaseEntity } from "./entities/base-entity";
 import type { EntityInput } from "./entities/types";
 
 const ensureArray = <T>(val: T | T[]): T[] =>
   Array.isArray(val) ? val : [val];
+
+type MockServiceCallback = (
+  data: Record<string, any> | undefined,
+  target: Record<string, any> | undefined,
+  hass: MockHomeAssistant
+) => any;
 
 type MockRestCallback = (
   hass: MockHomeAssistant,
@@ -68,6 +77,8 @@ export interface MockHomeAssistant extends HomeAssistant {
   updateHass(obj: Partial<MockHomeAssistant>);
   updateStates(newStates: HassEntities);
   addEntities(entities: EntityInput | EntityInput[], replace?: boolean);
+  // Recomputes the format functions, such as after the areas change.
+  updateFormatFunctions(): Promise<void>;
   updateTranslations(fragment: null | string, language?: string);
   addTranslations(translations: Record<string, string>, language?: string);
   mockWS<T extends (...args) => any = any>(
@@ -79,6 +90,8 @@ export interface MockHomeAssistant extends HomeAssistant {
     ) => Awaited<ReturnType<T>>
   );
   mockAPI(path: string | RegExp, callback: MockRestCallback);
+  // Registers a service that answers with data, for `callService(..., true)`.
+  mockService(domain: string, service: string, callback: MockServiceCallback);
   // Register a loader that is run (once) the first time an unmocked WS command
   // or REST path matching `shouldLoad` is received, allowing mocks to be
   // code-split into a dynamically imported chunk. The loader registers the
@@ -191,6 +204,12 @@ export const provideHass = (
   const wsCommands = {};
   const restResponses: [string | RegExp, MockRestCallback][] = [];
 
+  // Services that answer with data, keyed by "<domain>.<service>". Without one
+  // registered, a call that asks for a response gets none and callers that read
+  // it straight back throw.
+  const serviceMocks: Record<string, MockServiceCallback> = {};
+  const context = { id: "mock-context", user_id: null, parent_id: null };
+
   // Optional loader to lazily register mocks on first matching unmocked command.
   let lazyMatcher: ((commandOrPath: string) => boolean) | undefined;
   let lazyLoader: (() => Promise<unknown>) | undefined;
@@ -282,33 +301,77 @@ export const provideHass = (
     });
   }
 
+  // Like Core, an entity of a device has only its own name, which follows the
+  // name of the device in its friendly name. An entity named like its device
+  // has no name of its own.
+  const registryName = (
+    ent: MockBaseEntity
+  ): Pick<EntityRegistryDisplayEntry, "name" | "has_entity_name"> => {
+    const friendlyName: string | undefined =
+      ent.attributes.friendly_name || undefined;
+    const device = ent.deviceId ? hass().devices[ent.deviceId] : undefined;
+    const deviceName = device ? computeDeviceName(device) : undefined;
+
+    if (
+      !deviceName ||
+      !friendlyName ||
+      (friendlyName !== deviceName &&
+        !friendlyName.startsWith(`${deviceName} `))
+    ) {
+      return { name: friendlyName };
+    }
+
+    return {
+      name: friendlyName.slice(deviceName.length).trim() || undefined,
+      has_entity_name: true,
+    };
+  };
+
   function addEntities(
     newEntities: EntityInput | EntityInput[],
     replace = false
   ) {
+    if (replace) {
+      // Drop the old mock entities too, so that services cannot bring them back.
+      for (const entityId of Object.keys(entities)) {
+        delete entities[entityId];
+      }
+    }
+
     const states = {};
+
+    // A new object, so that registry consumers see the change
+    const registry: HomeAssistant["entities"] = replace
+      ? {}
+      : { ...hass().entities };
     ensureArray(newEntities).forEach((input) => {
       const ent = getEntity(input);
       ent.hass = hass();
       entities[ent.entityId] = ent;
       states[ent.entityId] = ent.toState();
 
-      hass().entities[ent.entityId] = {
+      const name = registryName(ent);
+      registry[ent.entityId] = {
         entity_id: ent.entityId,
-        name: ent.attributes.friendly_name || undefined,
+        ...name,
         icon: undefined,
-        platform: "demo",
+        platform: ent.platform ?? "demo",
         labels: [],
         area_id: ent.areaId,
+        device_id: ent.deviceId,
+        // Only follow the device when its name was split off, so a friendly
+        // name that doesn't start with it is shown as it is
+        next_name_part: ent.areaId
+          ? "area"
+          : name.has_entity_name
+            ? "device"
+            : undefined,
       } satisfies EntityRegistryDisplayEntry;
     });
-    if (replace) {
-      hass().updateHass({
-        states,
-      });
-    } else {
-      updateStates(states);
-    }
+    hass().updateHass({
+      entities: registry,
+      states: replace ? states : { ...hass().states, ...states },
+    });
 
     updateFormatFunctions();
   }
@@ -331,15 +394,18 @@ export const provideHass = (
 
   const localLanguage = getLocalLanguage();
   const noop = () => undefined;
+  const auth = {
+    data: {
+      hassUrl: location.origin,
+    },
+  } as any;
 
   const hassObj: MockHomeAssistant = {
     // Home Assistant properties
-    auth: {
-      data: {
-        hassUrl: location.origin,
-      },
-    } as any,
+    auth,
     connection: {
+      // The map reads the URL of Home Assistant from here
+      options: { auth },
       addEventListener: noop,
       removeEventListener: noop,
       sendMessage: (msg) => {
@@ -451,19 +517,29 @@ export const provideHass = (
     kioskMode: false,
     suspendWhenHidden: false,
     // @ts-ignore
-    async callService(domain, service, data) {
-      if (data && "entity_id" in data) {
+    async callService(domain, service, data, target, _notify, returnResponse) {
+      const mock = serviceMocks[`${domain}.${service}`];
+      if (mock) {
+        const response = await mock(data, target, hass());
+        return returnResponse ? { context, response } : { context };
+      }
+      const entityIds =
+        data && "entity_id" in data ? data.entity_id : target?.entity_id;
+      // The service data is optional, but the entities read straight from it.
+      const serviceData = data ?? {};
+      if (entityIds) {
         // eslint-disable-next-line
-        console.log("Entity service call", domain, service, data);
+        console.log("Entity service call", domain, service, serviceData);
         await Promise.all(
-          ensureArray(data.entity_id).map((ent) =>
-            entities[ent].handleService(domain, service, data)
+          ensureArray(entityIds).map((ent) =>
+            entities[ent]?.handleService(domain, service, serviceData)
           )
         );
       } else {
         // eslint-disable-next-line
-        console.log("unmocked callService", domain, service, data);
+        console.log("unmocked callService", domain, service, serviceData);
       }
+      return { context };
     },
     async callApi(method, path, parameters) {
       const findResponse = () =>
@@ -514,6 +590,7 @@ export const provideHass = (
       return hass().localize;
     },
     addEntities,
+    updateFormatFunctions,
     mockWS(type, callback) {
       wsCommands[type] = callback;
     },
@@ -522,6 +599,9 @@ export const provideHass = (
       lazyLoader = loader;
     },
     mockAPI,
+    mockService(domain, service, callback) {
+      serviceMocks[`${domain}.${service}`] = callback;
+    },
     mockEvent(event) {
       (eventListeners[event] || []).forEach((fn) => {
         fn(event);
@@ -576,10 +656,7 @@ export const provideHass = (
         value: value !== null ? value : (stateObj.attributes[attribute] ?? ""),
       },
     ],
-    formatEntityName: (stateObj, type) =>
-      typeof type === "string"
-        ? type
-        : (stateObj.attributes.friendly_name ?? stateObj.entity_id),
+    formatEntityName: computeEntityNameDisplayWithoutContext,
     ...overrideData,
   };
 

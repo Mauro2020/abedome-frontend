@@ -3,8 +3,18 @@ import type { PropertyValues } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import "../../../../components/ha-marquee-text";
 import type { ClockCardConfig } from "../types";
-import type { HomeAssistant } from "../../../../types";
+import type {
+  HomeAssistantConfig,
+  HomeAssistantInternationalization,
+} from "../../../../types";
 import { useAmPm } from "../../../../common/datetime/use_am_pm";
+import { consume } from "../../../../common/decorators/consume";
+import { transform } from "../../../../common/decorators/transform";
+import {
+  configContext,
+  internationalizationContext,
+} from "../../../../data/context";
+import type { FrontendLocaleData } from "../../../../data/translation";
 import {
   formatClockCardDate,
   getClockCardDateConfig,
@@ -16,9 +26,21 @@ const INTERVAL = 1000;
 
 @customElement("hui-clock-card-digital")
 export class HuiClockCardDigital extends LitElement {
-  @property({ attribute: false }) public hass?: HomeAssistant;
-
   @property({ attribute: false }) public config?: ClockCardConfig;
+
+  @state()
+  @consume({ context: internationalizationContext, subscribe: true })
+  @transform<HomeAssistantInternationalization, FrontendLocaleData>({
+    transformer: ({ locale }) => locale,
+  })
+  private _locale?: FrontendLocaleData;
+
+  @state()
+  @consume({ context: configContext, subscribe: true })
+  @transform<HomeAssistantConfig, string>({
+    transformer: ({ config }) => config.time_zone,
+  })
+  private _serverTimeZone?: string;
 
   @state() private _dateTimeFormat?: Intl.DateTimeFormat;
 
@@ -41,19 +63,23 @@ export class HuiClockCardDigital extends LitElement {
   private _language?: string;
 
   private _initDate() {
-    if (!this.config || !this.hass) {
+    if (!this.config || !this._locale || this._serverTimeZone === undefined) {
       this._date = undefined;
       this._lastDateMinute = undefined;
       return;
     }
 
-    const { locale, timeZone } = resolveClockCardLocale(this.hass, this.config);
+    const { locale, timeZone } = resolveClockCardLocale(
+      this._locale,
+      this._serverTimeZone,
+      this.config
+    );
 
     const h12 = useAmPm(locale);
-    this._language = this.hass.locale.language;
+    this._language = locale.language;
     this._timeZone = timeZone;
 
-    this._dateTimeFormat = new Intl.DateTimeFormat(this.hass.locale.language, {
+    this._dateTimeFormat = new Intl.DateTimeFormat(locale.language, {
       hour: h12 ? "numeric" : "2-digit",
       minute: "2-digit",
       second: "2-digit",
@@ -66,16 +92,13 @@ export class HuiClockCardDigital extends LitElement {
     this._tick();
   }
 
-  protected updated(changedProps: PropertyValues<this>) {
-    if (changedProps.has("config") || changedProps.has("hass")) {
-      const oldHass = changedProps.get("hass");
-      if (
-        changedProps.has("config") ||
-        !oldHass ||
-        oldHass.locale !== this.hass?.locale
-      ) {
-        this._initDate();
-      }
+  protected updated(changedProps: PropertyValues) {
+    if (
+      changedProps.has("config") ||
+      changedProps.has("_locale") ||
+      changedProps.has("_serverTimeZone")
+    ) {
+      this._initDate();
     }
   }
 
@@ -217,22 +240,34 @@ export class HuiClockCardDigital extends LitElement {
         "hour minute second"
         "hour minute am-pm";
 
-      font-size: 1.5rem;
+      font-size: var(
+        --ha-clock-card-digital-font-size-small,
+        var(--ha-font-size-2xl)
+      );
       font-weight: var(--ha-font-weight-medium);
       line-height: 0.8;
       direction: ltr;
     }
 
     .time-title + .time-parts {
-      font-size: 1.5rem;
+      font-size: var(
+        --ha-clock-card-digital-font-size-small,
+        var(--ha-font-size-2xl)
+      );
     }
 
     .time-parts.size-medium {
-      font-size: 3rem;
+      font-size: var(
+        --ha-clock-card-digital-font-size-medium,
+        calc(48px * var(--ha-font-size-scale))
+      );
     }
 
     .time-parts.size-large {
-      font-size: 4rem;
+      font-size: var(
+        --ha-clock-card-digital-font-size-large,
+        calc(64px * var(--ha-font-size-scale))
+      );
     }
 
     .time-parts.size-medium .time-part.second,

@@ -25,7 +25,7 @@ const SAFARI_TO_MACOS = {
   16: [11, 0, 0],
   17: [12, 0, 0],
   18: [13, 0, 0],
-  26: [26, 0, 0],
+  26: [14, 6, 0],
 };
 
 const getCommonTemplateVars = () => {
@@ -89,7 +89,7 @@ const minifyHtml = (content, ext) => {
     ...htmlMinifierOptions,
     conservativeCollapse: false,
     minifyJS: terserOptions({
-      latestBuild: false, // Shared scripts should be ES5
+      latestBuild: false, // Shared scripts must satisfy the legacy targets
       isTestBuild: true, // Don't need source maps
     }),
   }).then((wrapped) =>
@@ -232,7 +232,11 @@ gulp.task(
   )
 );
 
-const DEMO_PAGE_ENTRIES = { "index.html": ["main"] };
+const DEMO_PAGE_ENTRIES = {
+  "index.html": ["main"],
+  "components.html": ["embed"],
+  "embed.js": ["embed"],
+};
 
 gulp.task(
   "gen-pages-demo-dev",
@@ -303,7 +307,11 @@ gulp.task(
   )
 );
 
-const E2E_TEST_APP_PAGE_ENTRIES = { "index.html": ["main"] };
+const E2E_TEST_APP_PAGE_ENTRIES = {
+  "index.html": ["main"],
+  "dashboard.html": ["dashboard"],
+  "onboarding.html": ["onboarding"],
+};
 
 gulp.task(
   "gen-pages-e2e-test-app-dev",

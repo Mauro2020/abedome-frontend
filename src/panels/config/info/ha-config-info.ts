@@ -124,7 +124,9 @@ class HaConfigInfo extends LitElement {
       >
         <div class="content">
           <ha-card outlined class="header">
-            <abedome-logo-svg .title=${ABEDOME_PRODUCT_NAME}></abedome-logo-svg>
+            <abedome-logo-svg
+              .logoTitle=${ABEDOME_PRODUCT_NAME}
+            ></abedome-logo-svg>
             <p>${ABEDOME_PRODUCT_NAME}</p>
             <ul class="versions">
               <li>

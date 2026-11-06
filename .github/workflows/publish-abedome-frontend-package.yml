@@ -15,8 +15,10 @@ on:
       - "package.json"
       - "pyproject.toml"
       - "MANIFEST.in"
-      - "yarn.lock"
-      - ".yarnrc.yml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "patches/**"
+      - ".nvmrc"
 
 permissions:
   contents: read
@@ -111,9 +113,14 @@ jobs:
             exit 1
           fi
 
+          RELEASE_FLAGS=()
+          if [[ "$VERSION" == *".dev"* ]]; then
+            RELEASE_FLAGS+=(--prerelease)
+          fi
+
           gh release create "$TAG_NAME" "$WHEEL" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "ABEDOME Frontend ${VERSION}" \
             --notes "Versioned ABEDOME frontend package for controlled Core integration." \
-            --prerelease
+            "${RELEASE_FLAGS[@]}"

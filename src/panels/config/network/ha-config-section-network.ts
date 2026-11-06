@@ -2,12 +2,12 @@ import type { TemplateResult } from "lit";
 import { css, html, LitElement } from "lit";
 import { customElement, property } from "lit/decorators";
 import { isComponentLoaded } from "../../../common/config/is_component_loaded";
-import "../../../layouts/hass-subpage";
 import "../../../components/ha-card";
-import "../../../components/ha-md-list";
-import "../../../components/ha-md-list-item";
 import "../../../components/ha-icon-next";
 import { formatAbedomeProductText } from "../../../data/abedome";
+import "../../../components/item/ha-list-item-button";
+import "../../../components/list/ha-list-nav";
+import "../../../layouts/hass-subpage";
 import type { HomeAssistant, Route } from "../../../types";
 import "./ha-config-http-form";
 import "./ha-config-network";
@@ -58,10 +58,14 @@ class HaConfigSectionNetwork extends LitElement {
                       "ui.panel.config.network.discovery.title"
                     )}
                   >
-                    <ha-md-list>
+                    <ha-list-nav
+                      .ariaLabel=${this.hass.localize(
+                        "ui.panel.config.network.discovery.title"
+                      )}
+                    >
                       ${NETWORK_BROWSERS.map(
                         (domain) => html`
-                          <ha-md-list-item type="link" href="/config/${domain}">
+                          <ha-list-item-button href="/config/${domain}">
                             <div slot="headline">
                               ${this.hass.localize(
                                 `ui.panel.config.network.discovery.${domain}`
@@ -75,10 +79,10 @@ class HaConfigSectionNetwork extends LitElement {
                               )}
                             </div>
                             <ha-icon-next slot="end"></ha-icon-next>
-                          </ha-md-list-item>
+                          </ha-list-item-button>
                         `
                       )}
-                    </ha-md-list>
+                    </ha-list-nav>
                   </ha-card>
                 `
               : ""
@@ -105,8 +109,9 @@ class HaConfigSectionNetwork extends LitElement {
       margin-bottom: 24px;
       max-width: 600px;
     }
-    .discovery-card ha-md-list {
-      padding-top: 0;
+    .discovery-card ha-list-item-button::part(headline),
+    .discovery-card ha-list-item-button::part(supporting-text) {
+      white-space: normal;
     }
   `;
 }

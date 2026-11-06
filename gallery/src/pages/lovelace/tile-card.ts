@@ -12,7 +12,10 @@ import "../../components/demo-cards";
 import { mockIcons } from "../../../../demo/src/stubs/icons";
 import { ClimateEntityFeature } from "../../../../src/data/climate";
 import { FanEntityFeature } from "../../../../src/data/fan";
-import type { TileCardConfig } from "../../../../src/panels/lovelace/cards/types";
+import type {
+  GridCardConfig,
+  TileCardConfig,
+} from "../../../../src/panels/lovelace/cards/types";
 
 const ENTITIES = [
   {
@@ -29,6 +32,8 @@ const ENTITIES = [
     attributes: {
       friendly_name: "Bed Light",
       supported_color_modes: [LightColorMode.HS, LightColorMode.COLOR_TEMP],
+      color_mode: LightColorMode.HS,
+      hs_color: [210, 60],
     },
   },
   {
@@ -132,12 +137,12 @@ const ENTITIES = [
       fan_modes: ["on_low", "on_high", "auto_low", "auto_high", "off"],
       preset_modes: ["home", "eco", "away"],
       swing_modes: ["auto", "1", "2", "3", "off"],
-      switch_horizontal_modes: ["auto", "4", "5", "6", "off"],
       current_temperature: 23,
       target_temp_high: 24,
       target_temp_low: 21,
       fan_mode: "auto_low",
       preset_mode: "home",
+      swing_horizontal_modes: ["auto", "4", "5", "6", "off"],
       swing_mode: "auto",
       swing_horizontal_mode: "off",
       supported_features:
@@ -161,6 +166,39 @@ const ENTITIES = [
         FanEntityFeature.DIRECTION +
         FanEntityFeature.SET_SPEED +
         FanEntityFeature.OSCILLATE,
+    },
+  },
+  {
+    entity_id: "fan.three_speed_fan",
+    state: "on",
+    attributes: {
+      friendly_name: "Desk fan",
+      device_class: "fan",
+      percentage: 67,
+      percentage_step: 100 / 3,
+      supported_features: FanEntityFeature.SET_SPEED,
+    },
+  },
+  {
+    entity_id: "fan.four_speed_fan",
+    state: "on",
+    attributes: {
+      friendly_name: "Bedroom fan",
+      device_class: "fan",
+      percentage: 50,
+      percentage_step: 25,
+      supported_features: FanEntityFeature.SET_SPEED,
+    },
+  },
+  {
+    entity_id: "fan.five_speed_fan",
+    state: "on",
+    attributes: {
+      friendly_name: "Attic fan",
+      device_class: "fan",
+      percentage: 80,
+      percentage_step: 20,
+      supported_features: FanEntityFeature.SET_SPEED,
     },
   },
 ];
@@ -237,6 +275,22 @@ const CONFIGS = [
       type: "tile",
       entity: "light.bed_light",
       features: [{ type: "light-brightness" }],
+    },
+  },
+  {
+    heading: "Light color feature",
+    config: {
+      type: "tile",
+      entity: "light.bed_light",
+      features: [{ type: "light-color" }],
+    },
+  },
+  {
+    heading: "Light color feature with hue and saturation",
+    config: {
+      type: "tile",
+      entity: "light.bed_light",
+      features: [{ type: "light-color", controls: "hue_saturation" }],
     },
   },
   {
@@ -333,6 +387,50 @@ const CONFIGS = [
     },
   },
   {
+    heading: "Fan speed feature (3 speeds)",
+    config: {
+      type: "tile",
+      entity: "fan.three_speed_fan",
+      features: [{ type: "fan-speed" }],
+    },
+  },
+  {
+    heading: "Fan speed feature (4 speeds)",
+    config: {
+      type: "tile",
+      entity: "fan.four_speed_fan",
+      features: [{ type: "fan-speed" }],
+    },
+  },
+  {
+    heading: "Fan speed feature (5 speeds)",
+    config: {
+      type: "tile",
+      entity: "fan.five_speed_fan",
+      features: [{ type: "fan-speed" }],
+    },
+  },
+  {
+    heading: "Fan speed feature (half width)",
+    config: {
+      type: "grid",
+      columns: 2,
+      square: false,
+      cards: [
+        {
+          type: "tile",
+          entity: "fan.four_speed_fan",
+          features: [{ type: "fan-speed" }],
+        },
+        {
+          type: "tile",
+          entity: "fan.five_speed_fan",
+          features: [{ type: "fan-speed" }],
+        },
+      ],
+    },
+  },
+  {
     heading: "Fan oscillate feature",
     config: {
       type: "tile",
@@ -340,7 +438,85 @@ const CONFIGS = [
       features: [{ type: "fan-oscillate" }],
     },
   },
-] satisfies DemoCardConfig<TileCardConfig>[];
+  {
+    heading: "Inline features: one feature",
+    config: {
+      type: "tile",
+      entity: "climate.dual_thermostat",
+      features_position: "inline",
+      features: [{ type: "climate-hvac-modes", style: "dropdown" }],
+    },
+  },
+  {
+    heading: "Inline features: two features",
+    config: {
+      type: "tile",
+      entity: "climate.dual_thermostat",
+      features_position: "inline",
+      features: [
+        { type: "climate-hvac-modes", style: "dropdown" },
+        { type: "climate-preset-modes", style: "dropdown" },
+      ],
+    },
+  },
+  {
+    heading: "Inline features: three features",
+    config: {
+      type: "tile",
+      entity: "climate.dual_thermostat",
+      features_position: "inline",
+      features: [
+        { type: "climate-hvac-modes", style: "dropdown" },
+        { type: "climate-preset-modes", style: "dropdown" },
+        { type: "climate-fan-modes", style: "dropdown" },
+      ],
+    },
+  },
+  {
+    heading: "Inline features: four features",
+    config: {
+      type: "tile",
+      entity: "climate.dual_thermostat",
+      features_position: "inline",
+      features: [
+        { type: "climate-hvac-modes", style: "dropdown" },
+        { type: "climate-preset-modes", style: "dropdown" },
+        { type: "climate-fan-modes", style: "dropdown" },
+        { type: "climate-swing-modes", style: "dropdown" },
+      ],
+    },
+  },
+  {
+    heading: "Inline features: five features",
+    config: {
+      type: "tile",
+      entity: "climate.dual_thermostat",
+      features_position: "inline",
+      features: [
+        { type: "climate-hvac-modes", style: "dropdown" },
+        { type: "climate-preset-modes", style: "dropdown" },
+        { type: "climate-fan-modes", style: "dropdown" },
+        { type: "climate-swing-modes", style: "dropdown" },
+        { type: "climate-swing-horizontal-modes", style: "dropdown" },
+      ],
+    },
+  },
+  {
+    heading: "Bottom features: five features",
+    config: {
+      type: "tile",
+      entity: "climate.dual_thermostat",
+      features_position: "bottom",
+      features: [
+        { type: "climate-hvac-modes", style: "dropdown" },
+        { type: "climate-preset-modes", style: "dropdown" },
+        { type: "climate-fan-modes", style: "dropdown" },
+        { type: "climate-swing-modes", style: "dropdown" },
+        { type: "climate-swing-horizontal-modes", style: "dropdown" },
+      ],
+    },
+  },
+] satisfies DemoCardConfig<TileCardConfig | GridCardConfig>[];
 
 @customElement("demo-lovelace-tile-card")
 class DemoTile extends LitElement {

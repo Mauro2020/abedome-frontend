@@ -153,7 +153,9 @@ gulp.task("rspack-watch-app", () => {
       : createAppConfig({ isProdBuild: false, latestBuild: true })
   ).watch({ poll: isWsl }, doneHandler());
   gulp.watch(
-    path.join(paths.translations_src, "en.json"),
+    // Watch the folder via a glob; git replaces en.json on checkout/stash,
+    // which can permanently drop a watch on the file itself
+    path.join(paths.translations_src, "*.json"),
     gulp.series("build-translations", "copy-translations-app")
   );
 });
@@ -252,6 +254,7 @@ gulp.task("rspack-prod-gallery", () =>
     createGalleryConfig({
       isProdBuild: true,
       latestBuild: true,
+      isTestBuild: env.isTestBuild(),
     })
   )
 );

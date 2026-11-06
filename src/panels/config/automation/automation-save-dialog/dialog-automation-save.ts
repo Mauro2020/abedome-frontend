@@ -128,8 +128,12 @@ class DialogAutomationSave
     `;
   }
 
+  private get _isDiscardDialog(): boolean {
+    return this._params?.onDiscard !== undefined;
+  }
+
   protected _renderDiscard() {
-    if (!this._params?.onDiscard) {
+    if (!this._isDiscardDialog) {
       return nothing;
     }
     return html`
@@ -200,7 +204,6 @@ class DialogAutomationSave
         this._visibleOptionals.includes("category")
           ? html` <ha-category-picker
               id="category"
-              .hass=${this.hass}
               .scope=${this._params.domain}
               .label=${this.hass.localize(
                 "ui.components.category-picker.category"
@@ -214,7 +217,6 @@ class DialogAutomationSave
         this._visibleOptionals.includes("labels")
           ? html` <ha-labels-picker
               id="labels"
-              .hass=${this.hass}
               .value=${this._entryUpdates.labels}
               @value-changed=${this._registryEntryChanged}
             ></ha-labels-picker>`
@@ -292,7 +294,6 @@ class DialogAutomationSave
             ? nothing
             : html`<ha-suggest-with-ai-button
                 slot="headerActionItems"
-                .hass=${this.hass}
                 .generateTask=${this._generateTask}
                 @suggestion=${this._handleSuggestion}
               ></ha-suggest-with-ai-button>`
@@ -324,10 +325,14 @@ class DialogAutomationSave
           <ha-button
             slot="primaryAction"
             @click=${this._save}
-            .disabled=${!!this._params.config.alias && !this.isDirtyState}
+            .disabled=${
+              !!this._params.config.alias &&
+              !this._isDiscardDialog &&
+              !this.isDirtyState
+            }
           >
             ${this.hass.localize(
-              this._params.config.alias && !this._params.onDiscard
+              this._params.config.alias && !this._isDiscardDialog
                 ? "ui.panel.config.automation.editor.rename"
                 : "ui.common.save"
             )}
@@ -395,6 +400,7 @@ class DialogAutomationSave
       await buildEntityMetadataInspirations(
         this.hass.connection,
         this.hass.states,
+        this.hass.formatEntityName,
         this._params.domain
       )
     );

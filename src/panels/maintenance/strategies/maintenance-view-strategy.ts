@@ -15,10 +15,8 @@ import type { HomeAssistant } from "../../../types";
 import type { TileCardConfig } from "../../lovelace/cards/types";
 import { BINARY_STATE_ON } from "../../../common/const";
 import { computeDomain } from "../../../common/entity/compute_domain";
-import {
-  type EntityRegistryDisplayEntry,
-  findBatteryChargingEntity,
-} from "../../../data/entity/entity_registry";
+import { getDeviceEntityDisplayLookup } from "../../../data/device/device_registry";
+import { findBatteryChargingEntity } from "../../../data/entity/entity_registry";
 
 export interface MaintenanceViewStrategyConfig {
   type: "maintenance";
@@ -31,69 +29,85 @@ export const maintenanceEntityFilters: EntityFilter[] = [
   },
   {
     domain: "binary_sensor",
-    device_class: ["battery"],
+    device_class: ["battery", "problem"],
   },
 ];
 
 const LOW_BATTERY_THRESHOLD = 20;
 
-const _deviceEntities = memoizeOne(
-  (
-    deviceId: string,
-    entities: HomeAssistant["entities"]
-  ): EntityRegistryDisplayEntry[] => {
-    const entries = Object.values(entities);
-    return entries.filter((entity) => entity.device_id === deviceId);
-  }
+const _deviceEntityLookup = memoizeOne((entities: HomeAssistant["entities"]) =>
+  getDeviceEntityDisplayLookup(Object.values(entities))
 );
 
 export const filterLowBatteryEntities = (
-  hass: HomeAssistant,
+  states: HomeAssistant["states"],
+  entities: HomeAssistant["entities"],
   entityIds: string[]
-): string[] =>
-  entityIds.filter((entityId) => {
-    const state = hass.states[entityId]?.state ?? "";
+): string[] => {
+  return entityIds.filter((entityId) => {
+    const state = states[entityId]?.state ?? "";
+
     if (computeDomain(entityId) === "binary_sensor") {
-      return state === BINARY_STATE_ON;
-    }
-
-    const deviceId = hass.entities[entityId]?.device_id;
-    const entities = deviceId ? _deviceEntities(deviceId, hass.entities) : [];
-
-    const batteryChargingEntity = findBatteryChargingEntity(
-      hass.states,
-      entities
-    );
-    const batteryCharging = batteryChargingEntity
-      ? hass.states[batteryChargingEntity?.entity_id]
-      : undefined;
-
-    if (batteryCharging && batteryCharging.state === "on") {
-      return false;
+      const device_class = states[entityId]?.attributes?.device_class ?? "";
+      return state === BINARY_STATE_ON && device_class === "battery";
     }
 
     const stateValue = parseFloat(state);
-    return !isNaN(stateValue) && stateValue <= LOW_BATTERY_THRESHOLD;
-  });
+    if (isNaN(stateValue) || stateValue > LOW_BATTERY_THRESHOLD) {
+      return false;
+    }
 
-export const filterUnavailableBatteryEntities = (
-  hass: HomeAssistant,
+    const deviceId = entities[entityId]?.device_id;
+    if (!deviceId) {
+      return true;
+    }
+
+    const batteryChargingEntity = findBatteryChargingEntity(
+      states,
+      _deviceEntityLookup(entities)[deviceId] ?? []
+    );
+    const batteryCharging = batteryChargingEntity
+      ? states[batteryChargingEntity.entity_id]
+      : undefined;
+
+    return batteryCharging?.state !== "on";
+  });
+};
+
+export const filterProblemEntities = (
+  states: HomeAssistant["states"],
   entityIds: string[]
 ): string[] =>
   entityIds.filter((entityId) => {
-    return hass.states[entityId]?.state === "unavailable";
+    const state = states[entityId]?.state ?? "";
+    const device_class = states[entityId]?.attributes?.device_class ?? "";
+    return device_class === "problem" && state === BINARY_STATE_ON;
   });
 
-const computeBatteryTileCard = (
+export const filterUnavailableBatteryEntities = (
+  states: HomeAssistant["states"],
+  entityIds: string[]
+): string[] =>
+  entityIds.filter((entityId) => {
+    return states[entityId]?.state === "unavailable";
+  });
+
+const computeMaintenanceTileCard = (
+  states: HomeAssistant["states"],
   entities: HomeAssistant["entities"],
   entityId: string
 ): TileCardConfig => {
-  const entity = entities[entityId];
-  const deviceId = entity?.device_id;
+  const deviceId = entities[entityId]?.device_id;
+  if (!deviceId) {
+    return { type: "tile", entity: entityId, name: { type: "entity" } };
+  }
+  const isProblem = states[entityId]?.attributes?.device_class === "problem";
   return {
     type: "tile",
     entity: entityId,
-    name: { type: deviceId ? "device" : "entity" },
+    name: isProblem
+      ? [{ type: "device" }, { type: "entity" }]
+      : { type: "device" },
   };
 };
 
@@ -108,14 +122,23 @@ const processAreasForBattery = (
     const area = hass.areas[areaId];
     if (!area) continue;
 
-    const areaFilter = generateEntityFilter(hass, {
-      area: area.area_id,
-    });
+    const areaFilter = generateEntityFilter(
+      hass.states,
+      hass.entities,
+      hass.devices,
+      hass.areas,
+      hass.floors,
+      {
+        area: area.area_id,
+      }
+    );
     const areaBatteryEntities = entities.filter(areaFilter);
     const areaCards: LovelaceCardConfig[] = [];
 
     for (const entityId of areaBatteryEntities) {
-      areaCards.push(computeBatteryTileCard(hass.entities, entityId));
+      areaCards.push(
+        computeMaintenanceTileCard(hass.states, hass.entities, entityId)
+      );
     }
 
     if (areaCards.length > 0) {
@@ -141,14 +164,23 @@ const processUnassignedEntities = (
   hass: HomeAssistant,
   entities: string[]
 ): LovelaceCardConfig[] => {
-  const unassignedFilter = generateEntityFilter(hass, {
-    area: null,
-  });
+  const unassignedFilter = generateEntityFilter(
+    hass.states,
+    hass.entities,
+    hass.devices,
+    hass.areas,
+    hass.floors,
+    {
+      area: null,
+    }
+  );
   const unassignedEntities = entities.filter(unassignedFilter);
   const cards: LovelaceCardConfig[] = [];
 
   for (const entityId of unassignedEntities) {
-    cards.push(computeBatteryTileCard(hass.entities, entityId));
+    cards.push(
+      computeMaintenanceTileCard(hass.states, hass.entities, entityId)
+    );
   }
 
   return cards;
@@ -169,7 +201,14 @@ export class MaintenanceViewStrategy extends ReactiveElement {
     const allEntities = Object.keys(hass.states);
 
     const batteryFilters = maintenanceEntityFilters.map((filter) =>
-      generateEntityFilter(hass, filter)
+      generateEntityFilter(
+        hass.states,
+        hass.entities,
+        hass.devices,
+        hass.areas,
+        hass.floors,
+        filter
+      )
     );
 
     const entities = findEntities(allEntities, batteryFilters);

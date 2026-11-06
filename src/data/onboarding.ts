@@ -1,11 +1,11 @@
 import type { HomeAssistant } from "../types";
 import { handleFetchPromise } from "../util/hass-call-api";
-import type { CloudStatus } from "./cloud";
 
 export interface InstallationType {
   installation_type:
-    | "Home Assistant Operating System"
+    | "Home Assistant OS"
     | "Home Assistant Container"
+    | "Unsupported Third Party Container"
     | "Home Assistant Supervised"
     | "Home Assistant Core"
     | "Unknown";
@@ -20,10 +20,6 @@ export interface OnboardingUserStepResponse {
 export interface OnboardingIntegrationStepResponse {
   auth_code: string;
 }
-
-// Kept for the unregistered legacy onboarding element. ABEDOME onboarding no
-// longer exposes this step through OnboardingResponses.
-export interface OnboardingAnalyticsStepResponse {}
 
 export interface OnboardingResponses {
   user: OnboardingUserStepResponse;
@@ -50,6 +46,10 @@ export interface CloudLoginMFA extends CloudLoginBase {
   code: string;
 }
 
+export interface OnboardingCloudStatus {
+  logged_in: boolean;
+}
+
 export const fetchOnboardingOverview = () =>
   fetch(`${__HASS_URL__}/api/onboarding`, { credentials: "same-origin" });
 
@@ -73,11 +73,6 @@ export const onboardCoreConfigStep = (hass: HomeAssistant) =>
     "POST",
     "onboarding/core_config"
   );
-
-// Kept for the unregistered legacy onboarding element. The active ABEDOME
-// onboarding flow does not import or call it.
-export const onboardAnalyticsStep = (hass: HomeAssistant) =>
-  hass.callApi<OnboardingAnalyticsStepResponse>("POST", "onboarding/analytics");
 
 export const onboardIntegrationStep = (
   hass: HomeAssistant,
@@ -118,7 +113,7 @@ export const loginHaCloud = async (
     })
   );
 
-export const fetchHaCloudStatus = async (): Promise<CloudStatus> =>
+export const fetchHaCloudStatus = async (): Promise<OnboardingCloudStatus> =>
   handleFetchPromise(fetch("/api/onboarding/cloud/status"));
 
 export const signOutHaCloud = async () =>

@@ -124,14 +124,14 @@ class HaBackupConfigData extends LitElement {
 
   private async _fetchStorageInfo() {
     try {
-      this._storageInfo = await fetchHostDisksUsage(this.hass);
+      this._storageInfo = await fetchHostDisksUsage(this.hass, "default", 3);
     } catch (_err: any) {
       this._storageInfo = null;
     }
   }
 
   private _hasLocalAddons(addons: BackupAddonItem[]): boolean {
-    return addons.some((addon) => addon.slug === "local");
+    return addons.some((addon) => addon.slug.startsWith("local_"));
   }
 
   private _estimateBackupSize = memoizeOne(

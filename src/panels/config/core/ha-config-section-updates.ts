@@ -5,7 +5,10 @@ import {
   mdiLocationExit,
   mdiRefresh,
 } from "@mdi/js";
-import type { HassEntities } from "home-assistant-js-websocket";
+import type {
+  HassEntities,
+  UnsubscribeFunc,
+} from "home-assistant-js-websocket";
 import type { TemplateResult, PropertyValues } from "lit";
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators";
@@ -13,12 +16,17 @@ import memoizeOne from "memoize-one";
 import { isComponentLoaded } from "../../../common/config/is_component_loaded";
 import { supportsFeature } from "../../../common/entity/supports-feature";
 import { caseInsensitiveStringCompare } from "../../../common/string/compare";
+import "../../../components/animation/ha-fade-in";
+import "../../../components/ha-alert";
 import "../../../components/ha-button";
 import "../../../components/ha-card";
 import "../../../components/ha-dropdown";
 import type { HaDropdownSelectEvent } from "../../../components/ha-dropdown";
 import "../../../components/ha-dropdown-item";
 import { ABEDOME_PRODUCT_NAME } from "../../../data/abedome";
+import "../../../components/ha-spinner";
+import type { ManagerState } from "../../../data/backup_manager";
+import { subscribeBackupEvents } from "../../../data/backup_manager";
 import type { EntitySources } from "../../../data/entity/entity_sources";
 import { fetchEntitySourcesWithCache } from "../../../data/entity/entity_sources";
 import { extractApiErrorMessage } from "../../../data/hassio/common";
@@ -45,6 +53,7 @@ import {
 } from "../../../data/update";
 import { showAlertDialog } from "../../../dialogs/generic/show-dialog-box";
 import "../../../layouts/hass-subpage";
+import { SubscribeMixin } from "../../../mixins/subscribe-mixin";
 import type { HomeAssistant } from "../../../types";
 import { showToast } from "../../../util/toast";
 import "../dashboard/ha-config-updates";
@@ -54,22 +63,21 @@ interface UpdateGroup {
   key: string;
   title: string;
   entities: UpdateEntity[];
-  showUpdateAll: boolean;
+  showUpdateButton: boolean;
 }
 
 const SYSTEM_KEY = "__system__";
 const APPS_KEY = "__apps__";
-const INTEGRATIONS_KEY = "__integrations__";
 
 @customElement("ha-config-section-updates")
-class HaConfigSectionUpdates extends LitElement {
+class HaConfigSectionUpdates extends SubscribeMixin(LitElement) {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
   @property({ type: Boolean }) public narrow = false;
 
-  @state() private _searchParms = new URLSearchParams(window.location.search);
-
   @state() private _showSkipped = false;
+
+  @state() private _backupState?: ManagerState;
 
   @state() private _supervisorInfo?: HassioSupervisorInfo;
 
@@ -89,7 +97,10 @@ class HaConfigSectionUpdates extends LitElement {
 
   private async _loadEntitySources() {
     try {
-      this._entitySources = await fetchEntitySourcesWithCache(this.hass);
+      this._entitySources = await fetchEntitySourcesWithCache(
+        this.hass.callWS,
+        this.hass.states
+      );
     } catch (_err) {
       // Non-fatal: grouping falls back to entity registry platform lookup.
     }
@@ -133,16 +144,75 @@ class HaConfigSectionUpdates extends LitElement {
     this.requestUpdate();
   }
 
+  protected hassSubscribe(): Promise<UnsubscribeFunc>[] {
+    if (!this._watchesBackups()) {
+      return [];
+    }
+
+    return [
+      subscribeBackupEvents(this.hass, (event) => {
+        this._backupState = event.manager_state;
+      }).catch(() => {
+        // Show the page anyway; a blocked update reports its own error.
+        this._backupState = "idle";
+
+        return () => undefined;
+      }),
+    ];
+  }
+
+  // The Supervisor only holds back the updates it manages.
+  private _watchesBackups(): boolean {
+    return (
+      isComponentLoaded(this.hass.config, "backup") &&
+      isComponentLoaded(this.hass.config, "hassio")
+    );
+  }
+
+  private _backupStateLoading(): boolean {
+    return this._backupState === undefined && this._watchesBackups();
+  }
+
+  private _backupInProgressAlert() {
+    switch (this._backupState) {
+      case "create_backup":
+      case "receive_backup":
+      case "restore_backup":
+        return html`<ha-alert
+          alert-type="info"
+          .title=${this.hass.localize(
+            `ui.panel.config.updates.backup_in_progress.title.${this._backupState}`
+          )}
+        >
+          ${this.hass.localize(
+            `ui.panel.config.updates.backup_in_progress.${this._backupState}`,
+            {
+              backups_link: html`<a href="/config/backup"
+                >${this.hass.localize(
+                  "ui.panel.config.updates.backup_in_progress.backups_link"
+                )}</a
+              >`,
+            }
+          )}
+        </ha-alert>`;
+      default:
+        return undefined;
+    }
+  }
+
   protected render(): TemplateResult {
     const installableUpdates = this._filterInstallableUpdateEntities(
-      this.hass.states
+      this.hass.states,
+      this.hass.formatEntityName
     );
     const notInstallableUpdates = this._filterNotInstallableUpdateEntities(
       this.hass.states,
+      this.hass.formatEntityName,
       this._showSkipped
     );
     const skippedUpdates = this._filterSkippedUpdateEntities(
       this.hass.states,
+      this.hass.formatEntityName,
       this._showSkipped
     );
 
@@ -154,11 +224,11 @@ class HaConfigSectionUpdates extends LitElement {
       this.hass.locale.language
     );
 
+    const backupInProgressAlert = this._backupInProgressAlert();
+
     return html`
       <hass-subpage
-        .backPath=${
-          this._searchParms.has("historyBack") ? undefined : "/config/system"
-        }
+        back-path="/config/system"
         .hass=${this.hass}
         .narrow=${this.narrow}
         .header=${this.hass.localize("ui.panel.config.updates.caption")}
@@ -210,106 +280,143 @@ class HaConfigSectionUpdates extends LitElement {
             }
           </ha-dropdown>
         </div>
-        <div class="content">
-          ${groups.map(
-            (group) => html`
-              <ha-card outlined>
-                <div class="card-content">
-                  <div class="card-header">
-                    <div class="title" role="heading" aria-level="2">
-                      ${group.title}
-                    </div>
-                    ${
-                      group.showUpdateAll
-                        ? html`
-                            <ha-button
-                              appearance="plain"
-                              size="s"
-                              .group=${group}
-                              .disabled=${group.entities.every((entity) =>
-                                updateIsInstalling(entity)
-                              )}
-                              @click=${this._updateAll}
-                            >
+        ${
+          this._backupStateLoading()
+            ? html`
+                <ha-fade-in class="loading" .delay=${1000}>
+                  <ha-spinner></ha-spinner>
+                </ha-fade-in>
+              `
+            : html`
+                <div class="content">
+                  ${
+                    backupInProgressAlert &&
+                    groups.some(
+                      (group) =>
+                        group.key === APPS_KEY || group.key === SYSTEM_KEY
+                    )
+                      ? backupInProgressAlert
+                      : nothing
+                  }
+                  ${groups.map(
+                    (group) => html`
+                      <ha-card outlined>
+                        <div class="card-content">
+                          <div class="card-header">
+                            <div class="title" role="heading" aria-level="2">
+                              ${group.title}
+                            </div>
+                            ${
+                              group.showUpdateButton
+                                ? html`
+                                    <ha-button
+                                      appearance="plain"
+                                      size="s"
+                                      .group=${group}
+                                      .disabled=${
+                                        (!!backupInProgressAlert &&
+                                          group.key === APPS_KEY) ||
+                                        group.entities.every((entity) =>
+                                          updateIsInstalling(entity)
+                                        )
+                                      }
+                                      @click=${this._updateGroup}
+                                    >
+                                      ${this.hass.localize(
+                                        group.entities.length > 1
+                                          ? "ui.panel.config.updates.update_all"
+                                          : "ui.common.update"
+                                      )}
+                                    </ha-button>
+                                  `
+                                : nothing
+                            }
+                          </div>
+                          <ha-config-updates
+                            .narrow=${this.narrow}
+                            .updateEntities=${group.entities}
+                            showAll
+                          ></ha-config-updates>
+                        </div>
+                      </ha-card>
+                    `
+                  )}
+                  ${
+                    skippedUpdates.length
+                      ? html`
+                          <ha-card outlined>
+                            <div class="card-content">
+                              <div class="card-header">
+                                <div
+                                  class="title"
+                                  role="heading"
+                                  aria-level="2"
+                                >
+                                  ${this.hass.localize(
+                                    "ui.panel.config.updates.title_skipped",
+                                    {
+                                      count: skippedUpdates.length,
+                                    }
+                                  )}
+                                </div>
+                              </div>
+                              <ha-config-updates
+                                .narrow=${this.narrow}
+                                .updateEntities=${skippedUpdates}
+                                showAll
+                              ></ha-config-updates>
+                            </div>
+                          </ha-card>
+                        `
+                      : nothing
+                  }
+                  ${
+                    notInstallableUpdates.length
+                      ? html`
+                          <ha-card outlined>
+                            <div class="card-content">
+                              <div class="card-header">
+                                <div
+                                  class="title"
+                                  role="heading"
+                                  aria-level="2"
+                                >
+                                  ${this.hass.localize(
+                                    "ui.panel.config.updates.title_not_installable",
+                                    {
+                                      count: notInstallableUpdates.length,
+                                    }
+                                  )}
+                                </div>
+                              </div>
+                              <ha-config-updates
+                                .narrow=${this.narrow}
+                                .updateEntities=${notInstallableUpdates}
+                                showAll
+                              ></ha-config-updates>
+                            </div>
+                          </ha-card>
+                        `
+                      : nothing
+                  }
+                  ${
+                    groups.length +
+                    notInstallableUpdates.length +
+                    skippedUpdates.length
+                      ? nothing
+                      : html`
+                          <ha-card outlined>
+                            <div class="no-updates">
                               ${this.hass.localize(
-                                "ui.panel.config.updates.update_all"
+                                "ui.panel.config.updates.no_updates"
                               )}
-                            </ha-button>
-                          `
-                        : nothing
-                    }
-                  </div>
-                  <ha-config-updates
-                    .narrow=${this.narrow}
-                    .updateEntities=${group.entities}
-                    showAll
-                  ></ha-config-updates>
+                            </div>
+                          </ha-card>
+                        `
+                  }
                 </div>
-              </ha-card>
-            `
-          )}
-          ${
-            skippedUpdates.length
-              ? html`
-                  <ha-card outlined>
-                    <div class="card-content">
-                      <div class="card-header">
-                        <div class="title" role="heading" aria-level="2">
-                          ${this.hass.localize(
-                            "ui.panel.config.updates.title_skipped",
-                            {
-                              count: skippedUpdates.length,
-                            }
-                          )}
-                        </div>
-                      </div>
-                      <ha-config-updates
-                        .narrow=${this.narrow}
-                        .updateEntities=${skippedUpdates}
-                        showAll
-                      ></ha-config-updates>
-                    </div>
-                  </ha-card>
-                `
-              : nothing
-          }
-          ${
-            notInstallableUpdates.length
-              ? html`
-                  <ha-card outlined>
-                    <div class="card-content">
-                      <div class="card-header">
-                        <div class="title" role="heading" aria-level="2">
-                          ${this.hass.localize(
-                            "ui.panel.config.updates.title_not_installable",
-                            {
-                              count: notInstallableUpdates.length,
-                            }
-                          )}
-                        </div>
-                      </div>
-                      <ha-config-updates
-                        .narrow=${this.narrow}
-                        .updateEntities=${notInstallableUpdates}
-                        showAll
-                      ></ha-config-updates>
-                    </div>
-                  </ha-card>
-                `
-              : nothing
-          }
-          ${
-            groups.length + notInstallableUpdates.length + skippedUpdates.length
-              ? nothing
-              : html`
-                  <ha-card outlined>
-                    <div class="no-updates">
-                      ${this.hass.localize("ui.panel.config.updates.no_updates")}
-                    </div>
-                  </ha-card>
-                `
-          }
-        </div>
+              `
+        }
       </hass-subpage>
     `;
   }
@@ -352,7 +459,7 @@ class HaConfigSectionUpdates extends LitElement {
     checkForEntityUpdates(this, this.hass);
   }
 
-  private async _updateAll(ev: Event) {
+  private async _updateGroup(ev: Event) {
     const group = (ev.currentTarget as any).group as UpdateGroup;
     const entityIds = group.entities
       .filter((entity) => !updateIsInstalling(entity))
@@ -371,7 +478,7 @@ class HaConfigSectionUpdates extends LitElement {
           message = message.replaceAll(
             entityId,
             stateObj.attributes.title ||
-              stateObj.attributes.friendly_name ||
+              this.hass.formatEntityName(stateObj) ||
               entityId
           );
         }
@@ -381,21 +488,42 @@ class HaConfigSectionUpdates extends LitElement {
   }
 
   private _filterInstallableUpdateEntities = memoizeOne(
-    (entities: HassEntities) =>
-      filterUpdateEntitiesParameterized(entities, false, false)
+    (
+      entities: HassEntities,
+      formatEntityName: HomeAssistant["formatEntityName"]
+    ) =>
+      filterUpdateEntitiesParameterized(
+        entities,
+        formatEntityName,
+        false,
+        false
+      )
   );
 
   private _filterNotInstallableUpdateEntities = memoizeOne(
-    (entities: HassEntities, showSkipped: boolean) =>
-      filterUpdateEntitiesParameterized(entities, showSkipped, true)
+    (
+      entities: HassEntities,
+      formatEntityName: HomeAssistant["formatEntityName"],
+      showSkipped: boolean
+    ) =>
+      filterUpdateEntitiesParameterized(
+        entities,
+        formatEntityName,
+        showSkipped,
+        true
+      )
   );
 
   private _filterSkippedUpdateEntities = memoizeOne(
-    (entities: HassEntities, showSkipped: boolean): UpdateEntity[] => {
+    (
+      entities: HassEntities,
+      formatEntityName: HomeAssistant["formatEntityName"],
+      showSkipped: boolean
+    ): UpdateEntity[] => {
       if (!showSkipped) {
         return [];
       }
-      return filterUpdateEntities(entities).filter(
+      return filterUpdateEntities(entities, formatEntityName).filter(
         (entity) =>
           latestVersionIsSkipped(entity) &&
           supportsFeature(entity, UpdateEntityFeature.INSTALL)
@@ -418,7 +546,6 @@ class HaConfigSectionUpdates extends LitElement {
       const systemEntities: UpdateEntity[] = [];
       const appEntities: UpdateEntity[] = [];
       const byDomain = new Map<string, UpdateEntity[]>();
-      const otherIntegrationEntities: UpdateEntity[] = [];
 
       for (const entity of entities) {
         if (isSystemUpdate(entity)) {
@@ -427,13 +554,10 @@ class HaConfigSectionUpdates extends LitElement {
         }
         const domain =
           entitySources?.[entity.entity_id]?.domain ??
-          entityRegistry[entity.entity_id]?.platform;
+          entityRegistry[entity.entity_id]?.platform ??
+          "unknown";
         if (domain === "hassio") {
           appEntities.push(entity);
-          continue;
-        }
-        if (!domain) {
-          otherIntegrationEntities.push(entity);
           continue;
         }
         if (!byDomain.has(domain)) {
@@ -442,21 +566,17 @@ class HaConfigSectionUpdates extends LitElement {
         byDomain.get(domain)!.push(entity);
       }
 
-      const multiInstanceGroups: UpdateGroup[] = [];
+      const integrationGroups: UpdateGroup[] = [];
       byDomain.forEach((entries, domain) => {
-        if (entries.length >= 2) {
-          multiInstanceGroups.push({
-            key: domain,
-            title: domainToName(localize, domain),
-            entities: entries,
-            showUpdateAll: true,
-          });
-        } else {
-          otherIntegrationEntities.push(...entries);
-        }
+        integrationGroups.push({
+          key: domain,
+          title: domainToName(localize, domain),
+          entities: entries,
+          showUpdateButton: true,
+        });
       });
 
-      multiInstanceGroups.sort((a, b) =>
+      integrationGroups.sort((a, b) =>
         caseInsensitiveStringCompare(a.title, b.title, language)
       );
 
@@ -467,27 +587,18 @@ class HaConfigSectionUpdates extends LitElement {
           key: SYSTEM_KEY,
           title: ABEDOME_PRODUCT_NAME,
           entities: systemEntities,
-          showUpdateAll: false,
+          showUpdateButton: false,
         });
       }
 
-      groups.push(...multiInstanceGroups);
-
-      if (otherIntegrationEntities.length) {
-        groups.push({
-          key: INTEGRATIONS_KEY,
-          title: localize("ui.panel.config.updates.group_integrations"),
-          entities: otherIntegrationEntities,
-          showUpdateAll: true,
-        });
-      }
+      groups.push(...integrationGroups);
 
       if (appEntities.length) {
         groups.push({
           key: APPS_KEY,
           title: localize("ui.panel.config.updates.group_apps"),
           entities: appEntities,
-          showUpdateAll: true,
+          showUpdateButton: true,
         });
       }
 
@@ -512,6 +623,16 @@ class HaConfigSectionUpdates extends LitElement {
     }
     ha-config-updates {
       margin-bottom: 8px;
+    }
+    ha-alert {
+      display: block;
+      max-width: 600px;
+      margin: 0 auto var(--ha-space-6);
+    }
+    .loading {
+      display: flex;
+      justify-content: center;
+      padding: var(--ha-space-8) 0;
     }
 
     .card-content {

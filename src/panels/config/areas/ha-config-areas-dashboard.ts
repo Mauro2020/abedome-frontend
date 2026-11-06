@@ -86,8 +86,6 @@ export class HaConfigAreasDashboard extends LitElement {
 
   @state() private _hierarchy?: AreasFloorHierarchy;
 
-  private _searchParms = new URLSearchParams(window.location.search);
-
   private _blockHierarchyUpdate = false;
 
   private _blockHierarchyUpdateTimeout?: number;
@@ -168,9 +166,7 @@ export class HaConfigAreasDashboard extends LitElement {
       <hass-tabs-subpage
         .hass=${this.hass}
         .isWide=${this.isWide}
-        .backPath=${
-          this._searchParms.has("historyBack") ? undefined : "/config"
-        }
+        back-path="/config"
         .tabs=${configSections.areas}
         .route=${this.route}
         has-fab
@@ -406,7 +402,7 @@ export class HaConfigAreasDashboard extends LitElement {
     showAreaRegistryDetailDialog(this, {
       entry: area,
       updateEntry: async (values) =>
-        updateAreaRegistryEntry(this.hass!, area.area_id, values),
+        updateAreaRegistryEntry(this.hass!.callWS, area.area_id, values),
     });
   }
 
@@ -507,7 +503,7 @@ export class HaConfigAreasDashboard extends LitElement {
 
     try {
       await reorderAreaRegistryEntries(this.hass, areaOrder);
-      await updateAreaRegistryEntry(this.hass, area.area_id, {
+      await updateAreaRegistryEntry(this.hass.callWS, area.area_id, {
         floor_id: newFloorId,
       });
     } catch {
@@ -625,9 +621,9 @@ export class HaConfigAreasDashboard extends LitElement {
     showFloorRegistryDetailDialog(this, {
       entry,
       createEntry: async (values, addedAreas) => {
-        const floor = await createFloorRegistryEntry(this.hass!, values);
+        const floor = await createFloorRegistryEntry(this.hass!.callWS, values);
         addedAreas.forEach((areaId) => {
-          updateAreaRegistryEntry(this.hass, areaId, {
+          updateAreaRegistryEntry(this.hass.callWS, areaId, {
             floor_id: floor.floor_id,
           });
         });
@@ -639,12 +635,12 @@ export class HaConfigAreasDashboard extends LitElement {
           values
         );
         addedAreas.forEach((areaId) => {
-          updateAreaRegistryEntry(this.hass, areaId, {
+          updateAreaRegistryEntry(this.hass.callWS, areaId, {
             floor_id: floor.floor_id,
           });
         });
         removedAreas.forEach((areaId) => {
-          updateAreaRegistryEntry(this.hass, areaId, {
+          updateAreaRegistryEntry(this.hass.callWS, areaId, {
             floor_id: null,
           });
         });

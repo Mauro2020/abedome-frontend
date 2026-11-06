@@ -67,11 +67,13 @@ class HuiNumberEntityRow extends LitElement implements LovelaceRow {
 
     if (!stateObj) {
       return html`
-        <hui-warning .hass=${this.hass}>
-          ${createEntityNotFoundWarning(this.hass, this._config.entity)}
+        <hui-warning>
+          ${createEntityNotFoundWarning(this.hass.localize, this.hass.config)}
         </hui-warning>
       `;
     }
+
+    const name = this.hass.formatEntityName(stateObj, this._config.name);
 
     return html`
       <hui-generic-entity-row .hass=${this.hass} .config=${this._config}>
@@ -81,6 +83,7 @@ class HuiNumberEntityRow extends LitElement implements LovelaceRow {
                 <div class="flex">
                   <ha-slider
                     labeled
+                    .accessibleLabel=${name}
                     .disabled=${stateObj.state === UNAVAILABLE}
                     .step=${Number(stateObj.attributes.step)}
                     .min=${Number(stateObj.attributes.min)}
@@ -99,8 +102,9 @@ class HuiNumberEntityRow extends LitElement implements LovelaceRow {
                 </div>
               `
             : html`
-                <div class="flex state">
+                <div class="flex box">
                   <ha-input
+                    .accessibleLabel=${name}
                     auto-validate
                     .disabled=${stateObj.state === UNAVAILABLE}
                     pattern="[0-9]+([\\.][0-9]+)?"
@@ -135,6 +139,10 @@ class HuiNumberEntityRow extends LitElement implements LovelaceRow {
     .state {
       min-width: 45px;
       text-align: end;
+    }
+    .box {
+      flex-grow: 0;
+      min-width: 45px;
     }
     ha-input::part(wa-input) {
       text-align: end;
@@ -181,7 +189,11 @@ class HuiNumberEntityRow extends LitElement implements LovelaceRow {
     const stateObj = this.hass!.states[this._config!.entity];
 
     if ((ev.target as HaInput).value !== stateObj.state) {
-      setValue(this.hass!, stateObj.entity_id, (ev.target as HaInput).value!);
+      setValue(
+        this.hass!.callService,
+        stateObj.entity_id,
+        (ev.target as HaInput).value!
+      );
     }
   }
 }

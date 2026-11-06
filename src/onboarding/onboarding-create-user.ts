@@ -1,9 +1,10 @@
+import type { ContextType } from "@lit/context";
 import { genClientId } from "home-assistant-js-websocket";
 import type { CSSResultGroup, PropertyValues, TemplateResult } from "lit";
 import { html, LitElement } from "lit";
-import { customElement, property, query, state } from "lit/decorators";
+import { customElement, query, state } from "lit/decorators";
+import { consume } from "../common/decorators/consume";
 import { fireEvent } from "../common/dom/fire_event";
-import type { LocalizeFunc } from "../common/translations/localize";
 import { debounce } from "../common/util/debounce";
 import "../components/ha-alert";
 import "../components/ha-button";
@@ -13,8 +14,10 @@ import type {
   HaFormDataContainer,
   HaFormSchema,
 } from "../components/ha-form/types";
+import { internationalizationContext } from "../data/context";
 import { onboardUserStep } from "../data/onboarding";
 import type { ValueChangedEvent } from "../types";
+import { onboardingErrorMessage } from "./onboarding-error-message";
 import { onBoardingStyles } from "./styles";
 
 const CHECK_USERNAME_REGEX = /\s|[A-Z]/;
@@ -44,9 +47,9 @@ const CREATE_USER_SCHEMA: HaFormSchema[] = [
 
 @customElement("onboarding-create-user")
 class OnboardingCreateUser extends LitElement {
-  @property({ attribute: false }) public localize!: LocalizeFunc;
-
-  @property() public language!: string;
+  @state()
+  @consume({ context: internationalizationContext, subscribe: true })
+  private _i18n!: ContextType<typeof internationalizationContext>;
 
   @state() private _loading = false;
 
@@ -60,8 +63,8 @@ class OnboardingCreateUser extends LitElement {
 
   protected render(): TemplateResult {
     return html`
-      <h1>${this.localize("ui.panel.page-onboarding.user.header")}</h1>
-      <p>${this.localize("ui.panel.page-onboarding.user.intro")}</p>
+      <h1>${this._i18n.localize("ui.panel.page-onboarding.user.header")}</h1>
+      <p>${this._i18n.localize("ui.panel.page-onboarding.user.intro")}</p>
 
       ${
         this._errorMsg
@@ -70,8 +73,8 @@ class OnboardingCreateUser extends LitElement {
       }
 
       <ha-form
-        .computeLabel=${this._computeLabel(this.localize)}
-        .computeHelper=${this._computeHelper(this.localize)}
+        .computeLabel=${this._computeLabel(this._i18n.localize)}
+        .computeHelper=${this._computeHelper(this._i18n.localize)}
         .data=${this._newUser}
         .disabled=${this._loading}
         .error=${this._formError}
@@ -90,7 +93,7 @@ class OnboardingCreateUser extends LitElement {
             this._newUser.password !== this._newUser.password_confirm
           }
         >
-          ${this.localize("ui.panel.page-onboarding.user.create_account")}
+          ${this._i18n.localize("ui.panel.page-onboarding.user.create_account")}
         </ha-button>
       </div>
     `;
@@ -157,7 +160,7 @@ class OnboardingCreateUser extends LitElement {
     this._formError.password_confirm =
       this._newUser.password_confirm &&
       this._newUser.password !== this._newUser.password_confirm
-        ? this.localize(
+        ? this._i18n.localize(
             "ui.panel.page-onboarding.user.error.password_not_match"
           )
         : "";
@@ -181,7 +184,7 @@ class OnboardingCreateUser extends LitElement {
   private _checkUsername(): void {
     const old = this._formError.username;
     if (CHECK_USERNAME_REGEX.test(this._newUser.username as string)) {
-      this._formError.username = this.localize(
+      this._formError.username = this._i18n.localize(
         "ui.panel.page-onboarding.user.error.username_not_normalized"
       );
     } else {
@@ -205,7 +208,7 @@ class OnboardingCreateUser extends LitElement {
         name: String(this._newUser.name),
         username: String(this._newUser.username),
         password: String(this._newUser.password),
-        language: this.language,
+        language: this._i18n.language,
       });
 
       fireEvent(this, "onboarding-step", {
@@ -214,46 +217,11 @@ class OnboardingCreateUser extends LitElement {
       });
     } catch (err: unknown) {
       this._loading = false;
-      this._errorMsg = this._errorMessage(err);
+      this._errorMsg = onboardingErrorMessage(
+        err,
+        this._i18n.localize("ui.common.unknown_error")
+      );
     }
-  }
-
-  private _errorMessage(err: unknown): string {
-    if (typeof err === "object" && err !== null) {
-      if ("body" in err) {
-        const { body } = err;
-
-        if (
-          typeof body === "object" &&
-          body !== null &&
-          "message" in body &&
-          typeof body.message === "string" &&
-          body.message
-        ) {
-          return body.message;
-        }
-      }
-    }
-
-    if (err instanceof Error && err.message) {
-      return err.message;
-    }
-
-    if (typeof err === "object" && err !== null) {
-      if ("body" in err) {
-        const { body } = err;
-
-        if (typeof body === "string" && body) {
-          return body;
-        }
-      }
-
-      if ("error" in err && typeof err.error === "string" && err.error) {
-        return err.error;
-      }
-    }
-
-    return this.localize("ui.common.unknown_error");
   }
 
   static get styles(): CSSResultGroup {

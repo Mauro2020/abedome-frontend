@@ -46,6 +46,7 @@ import type { GUIModeChangedEvent } from "../types";
 import "./hui-card-element-editor";
 import type { HuiCardElementEditor } from "./hui-card-element-editor";
 import type { EditCardDialogParams } from "./show-edit-card-dialog";
+import { KeyboardShortcutMixin } from "../../../../mixins/keyboard-shortcut-mixin";
 
 declare global {
   // for fire event
@@ -60,7 +61,9 @@ declare global {
 
 @customElement("hui-dialog-edit-card")
 export class HuiDialogEditCard
-  extends DirtyStateProviderMixin<LovelaceCardConfig>()(LitElement)
+  extends DirtyStateProviderMixin<LovelaceCardConfig>()(
+    KeyboardShortcutMixin(LitElement)
+  )
   implements HassDialog<EditCardDialogParams>
 {
   @property({ attribute: false }) public hass!: HomeAssistant;
@@ -204,7 +207,6 @@ export class HuiDialogEditCard
         .preventScrimClose=${this.isEffectiveDirtyState}
         @keydown=${this._ignoreKeydown}
         @closed=${this._dialogClosed}
-        @opened=${this._opened}
       >
         <ha-icon-button
           slot="headerNavigationIcon"
@@ -349,13 +351,15 @@ export class HuiDialogEditCard
     });
   }
 
-  private _opened() {
-    this._cardEditorEl?.focusYamlEditor();
+  protected supportedShortcutsInInput(): SupportedShortcuts {
+    return this._params && this._guiModeAvailable
+      ? { Y: () => this._toggleMode() }
+      : {};
   }
 
   private _cardConfigInSection = memoizeOne(
     (cardConfig: LovelaceCardConfig) => {
-      const { cards, title, ...containerConfig } = this
+      const { cards, badges, sections, title, ...containerConfig } = this
         ._sectionConfig as LovelaceSectionConfig;
 
       return {
@@ -492,8 +496,8 @@ export class HuiDialogEditCard
           max-width: var(--ha-view-sections-column-max-width, 500px);
         }
         .content .element-editor {
+          padding-inline-start: var(--ha-space-1);
           padding-inline-end: var(--ha-space-2);
-          margin-inline-start: var(--ha-space-1);
           margin-bottom: 0;
         }
 

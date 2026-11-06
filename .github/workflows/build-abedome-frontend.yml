@@ -12,8 +12,10 @@ on:
       - "public/static/icons/**"
       - "build-scripts/**"
       - "package.json"
-      - "yarn.lock"
-      - ".yarnrc.yml"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "patches/**"
+      - ".nvmrc"
 
 permissions:
   contents: read

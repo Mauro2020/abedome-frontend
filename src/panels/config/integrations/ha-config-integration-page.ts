@@ -18,6 +18,8 @@ import { customElement, property, queryAll, state } from "lit/decorators";
 import { until } from "lit/directives/until";
 import memoizeOne from "memoize-one";
 import { isComponentLoaded } from "../../../common/config/is_component_loaded";
+import { QueryParamsController } from "../../../common/controllers/query-params-controller";
+import type { HASSDomTargetEvent } from "../../../common/dom/fire_event";
 import { computeDeviceNameDisplay } from "../../../common/entity/compute_device_name";
 import {
   PROTOCOL_INTEGRATIONS,
@@ -25,14 +27,18 @@ import {
 } from "../../../common/integrations/protocolIntegrationPicked";
 import { caseInsensitiveStringCompare } from "../../../common/string/compare";
 import type { LocalizeFunc } from "../../../common/translations/localize";
+import {
+  integrationQueryParamConfig,
+  integrationSearchFromUrl,
+} from "../../../common/url/integrations-query-params";
 import { nextRender } from "../../../common/util/render-status";
 import "../../../components/ha-button";
 import "../../../components/ha-dropdown";
 import "../../../components/ha-dropdown-item";
-import "../../../components/ha-md-list";
-import "../../../components/ha-md-list-item";
 import "../../../components/input/ha-input-search";
 import type { HaInputSearch } from "../../../components/input/ha-input-search";
+import "../../../components/item/ha-list-item-base";
+import "../../../components/list/ha-list-base";
 import { getSignedPath } from "../../../data/auth";
 import type { ConfigEntry, SubEntry } from "../../../data/config_entries";
 import {
@@ -67,7 +73,7 @@ import { QUALITY_SCALE_MAP } from "../../../data/integration_quality_scale";
 import { showConfigFlowDialog } from "../../../dialogs/config-flow/show-dialog-config-flow";
 import { showSubConfigFlowDialog } from "../../../dialogs/config-flow/show-dialog-sub-config-flow";
 import { showAlertDialog } from "../../../dialogs/generic/show-dialog-box";
-import "../../../layouts/hass-error-screen";
+import { showLiveLogDialog } from "./show-dialog-live-log";
 import "../../../layouts/hass-subpage";
 import { SubscribeMixin } from "../../../mixins/subscribe-mixin";
 import { multiTermSearch } from "../../../resources/fuseMultiTerm";
@@ -95,18 +101,25 @@ export interface ConfigEntryData {
   subEntries: SubEntryData[];
 }
 
+// The AI settings show how to connect to the MCP server and its APIs.
+const AI_SETTINGS_DOMAINS = ["mcp", "mcp_server"];
+
 export const renderConfigEntryError = (
   hass: HomeAssistant,
   entry: ConfigEntry
 ): TemplateResult => {
   if (entry.reason) {
     if (entry.error_reason_translation_key) {
+      // The error may be translated by another integration, e.g. one raised by
+      // a shared helper and owned by the homeassistant integration.
+      const translationDomain =
+        entry.error_reason_translation_domain || entry.domain;
       const lokalisePromExc = hass
-        .loadBackendTranslation("exceptions", entry.domain)
+        .loadBackendTranslation("exceptions", translationDomain)
         .then(
           (localize) =>
             localize(
-              `component.${entry.domain}.exceptions.${entry.error_reason_translation_key}.message`,
+              `component.${translationDomain}.exceptions.${entry.error_reason_translation_key}.message`,
               entry.error_reason_translation_placeholders ?? undefined
             ) || entry.reason
         );
@@ -123,7 +136,7 @@ export const renderConfigEntryError = (
   }
   return html`
     <br />
-    <a href=${`/config/logs?filter=${encodeURIComponent(entry.domain)}`}>
+    <a href=${`/config/logs?search=${encodeURIComponent(entry.domain)}`}>
       ${hass.localize(
         "ui.panel.config.integrations.config_entry.check_the_logs"
       )}
@@ -157,7 +170,7 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
   @state() private _logInfo?: IntegrationLogInfo;
 
   @state() private _searchParms = new URLSearchParams(
-    window.location.hash.substring(1)
+    __DEMO__ ? window.location.search : window.location.hash.substring(1)
   );
 
   @state() private _filter = "";
@@ -171,8 +184,19 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
   @queryAll("ha-config-entry-row")
   private _configEntryRows!: NodeListOf<HaConfigEntryRow>;
 
+  private _queryParams = new QueryParamsController(
+    this,
+    integrationQueryParamConfig,
+    {
+      enabled: () => true,
+      navigated: () => this._applyUrl(),
+    }
+  );
+
   private _handleHashChange = () => {
-    this._searchParms = new URLSearchParams(window.location.hash.substring(1));
+    this._searchParms = new URLSearchParams(
+      __DEMO__ ? window.location.search : window.location.hash.substring(1)
+    );
   };
 
   private _domainConfigEntries = memoizeOne(
@@ -230,6 +254,10 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
       this._fetchDiagnostics();
       this._fetchEntitySources();
     }
+
+    if (!this.hasUpdated) {
+      this._applyUrl();
+    }
     if (
       changedProperties.has("configEntries") ||
       changedProperties.has("_extraConfigEntries")
@@ -243,7 +271,10 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
   }
 
   private async _fetchEntitySources() {
-    const entitySources = await fetchEntitySourcesWithCache(this.hass);
+    const entitySources = await fetchEntitySourcesWithCache(
+      this.hass.callWS,
+      this.hass.states
+    );
 
     const entitiesByDomain = {};
 
@@ -368,12 +399,21 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
       this.domain
     );
 
+    const showAddEntry =
+      this._manifest?.integration_type !== "hardware" &&
+      (!this._manifest?.single_config_entry ||
+        (normalData.length === 0 && attentionData.length === 0));
+
     const documentationLink = this._manifest?.is_built_in
       ? documentationUrl(this.hass, `/integrations/${this._manifest.domain}`)
       : this._manifest?.documentation;
 
     return html`
-      <hass-subpage .hass=${this.hass} .narrow=${this.narrow}>
+      <hass-subpage
+        .hass=${this.hass}
+        .narrow=${this.narrow}
+        back-path="/config/integrations/dashboard"
+      >
         ${
           documentationLink
             ? html`
@@ -430,7 +470,7 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
                 ${
                   this._logInfo
                     ? html`<a
-                          href=${`/config/logs?filter=${encodeURIComponent(this.domain)}`}
+                          href=${`/config/logs?search=${encodeURIComponent(this.domain)}`}
                         >
                           <ha-dropdown-item>
                             <ha-svg-icon
@@ -606,7 +646,7 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
                             href=${
                               devices.length === 1
                                 ? `/config/devices/device/${devices[0].id}`
-                                : `/config/devices/dashboard?historyBack=1&domain=${this.domain}`
+                                : `/config/devices/dashboard?historyBack=1&domain=${this.domain}&status=disabled`
                             }
                           >
                             ${this.hass.localize(
@@ -624,7 +664,7 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
                           href=${
                             services.length === 1
                               ? `/config/devices/device/${services[0].id}`
-                              : `/config/devices/dashboard?historyBack=1&domain=${this.domain}`
+                              : `/config/devices/dashboard?historyBack=1&domain=${this.domain}&status=disabled`
                           }
                         >
                           ${this.hass.localize(
@@ -658,6 +698,26 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
             </div>
             <div class="actions">
               ${
+                AI_SETTINGS_DOMAINS.includes(this.domain)
+                  ? html`<ha-button
+                      .appearance=${showAddEntry ? "outlined" : "accent"}
+                      href=${
+                        // The demo routes with the hash, so it cannot link to a section.
+                        __DEMO__ ? "/config/ai" : "/config/ai#mcp"
+                      }
+                    >
+                      ${this.hass.localize(
+                        "ui.panel.config.integrations.integration_page.open_config_panel",
+                        {
+                          name: this.hass.localize(
+                            "ui.panel.config.ai.caption"
+                          ),
+                        }
+                      )}
+                    </ha-button>`
+                  : nothing
+              }
+              ${
                 canAddDevice
                   ? html`
                       <ha-button @click=${this._addDevice}>
@@ -669,9 +729,7 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
                   : nothing
               }
               ${
-                this._manifest?.integration_type !== "hardware" &&
-                (!this._manifest?.single_config_entry ||
-                  (normalData.length === 0 && attentionData.length === 0))
+                showAddEntry
                   ? html`<ha-button
                       .appearance=${canAddDevice ? "filled" : "accent"}
                       @click=${this._addIntegration}
@@ -709,30 +767,49 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
           </div>
 
           ${
-            normalData.length + attentionData.length > 0
+            normalData.length + attentionData.length > 0 || this._filter
               ? html`<ha-input-search
                   appearance="outlined"
                   .value=${this._filter}
                   @input=${this._handleSearchChange}
+                  @blur=${this._flushUrl}
                 ></ha-input-search>`
               : nothing
           }
           ${
             this._logInfo?.level === LogSeverity.DEBUG
               ? html`<div class="section">
-                  <ha-alert alert-type="warning">
-                    <ha-svg-icon slot="icon" .path=${mdiBugPlay}></ha-svg-icon>
-                    ${this.hass.localize(
+                  <ha-alert
+                    alert-type="warning"
+                    .narrow=${this.narrow}
+                    .title=${this.hass.localize(
                       "ui.panel.config.integrations.config_entry.debug_logging_enabled"
                     )}
-                    <ha-button
-                      size="s"
-                      variant="warning"
-                      slot="action"
-                      @click=${this._handleDisableDebugLogging}
-                    >
-                      ${this.hass.localize("ui.common.disable")}
-                    </ha-button>
+                  >
+                    <ha-svg-icon slot="icon" .path=${mdiBugPlay}></ha-svg-icon>
+                    ${this.hass.localize(
+                      "ui.panel.config.integrations.config_entry.debug_logging_enabled_description"
+                    )}
+                    <div slot="action" class="debug-actions">
+                      <ha-button
+                        size="s"
+                        variant="warning"
+                        appearance="plain"
+                        @click=${this._showLiveLog}
+                      >
+                        ${this.hass.localize(
+                          "ui.panel.config.integrations.config_entry.show_logs"
+                        )}
+                      </ha-button>
+                      <ha-button
+                        size="s"
+                        variant="warning"
+                        appearance="filled"
+                        @click=${this._handleDisableDebugLogging}
+                      >
+                        ${this.hass.localize("ui.common.disable")}
+                      </ha-button>
+                    </div>
                   </ha-alert>
                 </div>`
               : nothing
@@ -746,11 +823,11 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
                         "ui.panel.config.integrations.discovered"
                       )}
                     </h3>
-                    <ha-md-list class="discovered">
+                    <ha-list-base class="discovered">
                       ${filteredDiscoveryData.map(
                         (flow) =>
-                          html`<ha-md-list-item class="discovered">
-                            ${flow.localized_title}
+                          html`<ha-list-item-base class="discovered">
+                            <span slot="headline">${flow.localized_title}</span>
                             <ha-button
                               slot="end"
                               variant="success"
@@ -760,9 +837,9 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
                             >
                               ${this.hass.localize("ui.common.add")}
                             </ha-button>
-                          </ha-md-list-item>`
+                          </ha-list-item-base>`
                       )}
-                    </ha-md-list>
+                    </ha-list-base>
                   </div>
                 `
               : nothing
@@ -778,15 +855,17 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
                     </h3>
                     ${
                       filteredAttentionFlows.length
-                        ? html`<ha-md-list class="attention">
+                        ? html`<ha-list-base class="attention">
                             ${filteredAttentionFlows.map((flow) => {
                               const attention = ATTENTION_SOURCES.includes(
                                 flow.context.source
                               );
-                              return html`<ha-md-list-item
+                              return html`<ha-list-item-base
                                 class="config_entry ${attention ? "attention" : ""}"
                               >
-                                ${flow.localized_title}
+                                <span slot="headline"
+                                  >${flow.localized_title}</span
+                                >
                                 <span slot="supporting-text"
                                   >${this.hass.localize(
                                     `ui.panel.config.integrations.${
@@ -805,9 +884,9 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
                                     }`
                                   )}</ha-button
                                 >
-                              </ha-md-list-item>`;
+                              </ha-list-item-base>`;
                             })}
-                          </ha-md-list>`
+                          </ha-list-base>`
                         : nothing
                     }
                     ${filteredAttentionData.map(
@@ -901,7 +980,7 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
     );
     if (row) {
       row.scrollIntoView({
-        block: "center",
+        block: "start",
       });
       row.classList.add("highlight");
     }
@@ -958,7 +1037,7 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
       entriesWithSubs.map(async (entry) => {
         try {
           results[entry.entry_id] = (
-            await getSubEntries(this.hass, entry.entry_id)
+            await getSubEntries(this.hass.callWS, entry.entry_id)
           ).sort((a, b) =>
             caseInsensitiveStringCompare(
               a.title,
@@ -988,8 +1067,8 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
     // and we want to avoid unnecessary recomputations when states change
     const sortDevices = (a: DeviceRegistryEntry, b: DeviceRegistryEntry) =>
       caseInsensitiveStringCompare(
-        computeDeviceNameDisplay(a, localize, this.hass.states) || "",
-        computeDeviceNameDisplay(b, localize, this.hass.states) || "",
+        computeDeviceNameDisplay(a, localize) || "",
+        computeDeviceNameDisplay(b, localize) || "",
         language
       );
 
@@ -1223,8 +1302,34 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
       this._filterTree(data, filter, areas)
   );
 
-  private _handleSearchChange(ev: InputEvent) {
-    this._filter = (ev.target as HaInputSearch).value ?? "";
+  private _handleSearchChange(ev: HASSDomTargetEvent<HaInputSearch>) {
+    this._filter = ev.target.value ?? "";
+
+    this._writeUrl(true);
+  }
+
+  private _flushUrl() {
+    this._queryParams.flush();
+  }
+
+  private _writeUrl(debounced = false) {
+    this._queryParams.write({ search: this._filter }, debounced);
+  }
+
+  private _applyUrl() {
+    const searchParams = this._queryParams.searchParams();
+
+    if (!searchParams) {
+      return;
+    }
+
+    const search = integrationSearchFromUrl(searchParams);
+
+    if (search !== undefined) {
+      this._filter = search;
+    }
+
+    this._writeUrl();
   }
 
   private async _handleEnableDebugLogging() {
@@ -1235,6 +1340,13 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
       LogSeverity[LogSeverity.DEBUG],
       "once"
     );
+  }
+
+  private _showLiveLog() {
+    showLiveLogDialog(this, {
+      domain: this.domain,
+      name: domainToName(this.hass.localize, this.domain, this._manifest),
+    });
   }
 
   private async _handleDisableDebugLogging(ev: Event) {
@@ -1330,7 +1442,14 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
     const configEntries = this._domainConfigEntries(
       this.domain,
       this._extraConfigEntries || this.configEntries
-    ).filter((entry) => entry.source !== "ignore");
+    ).filter(
+      (entry) =>
+        entry.source !== "ignore" &&
+        Object.prototype.hasOwnProperty.call(
+          entry.supported_subentry_types,
+          flowType
+        )
+    );
 
     if (!configEntries.length) {
       return;
@@ -1454,6 +1573,13 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
         .section {
           width: 100%;
         }
+        .debug-actions {
+          display: flex;
+          gap: var(--ha-space-2);
+        }
+        .debug-actions ha-button::part(label) {
+          white-space: nowrap;
+        }
         .section-header {
           margin-inline-start: 16px;
           margin-top: 6px;
@@ -1507,26 +1633,27 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
           color: var(--mdc-theme-text-icon-on-background, rgba(0, 0, 0, 0.38));
           animation: unset;
         }
-        ha-md-list {
-          border: 1px solid var(--divider-color);
+        ha-list-base {
+          border: var(--ha-border-width-sm) solid var(--divider-color);
           border-radius: var(--ha-border-radius-md);
-          padding: 0;
+          overflow: hidden;
         }
-        .discovered {
-          --md-list-container-color: rgba(var(--rgb-success-color), 0.2);
+        ha-list-base.discovered {
+          background-color: var(--ha-color-fill-success-quiet-resting);
         }
-        .attention {
-          --md-list-container-color: rgba(var(--rgb-warning-color), 0.2);
+        ha-list-base.attention {
+          background-color: var(--ha-color-fill-warning-quiet-resting);
         }
-        ha-md-list-item {
-          --md-list-item-top-space: 4px;
-          --md-list-item-bottom-space: 4px;
+        ha-list-item-base + ha-list-item-base {
+          border-top: var(--ha-border-width-sm) solid var(--divider-color);
+        }
+        ha-list-item-base.discovered {
+          --ha-row-item-min-height: 72px;
+        }
+        ha-list-item-base.config_entry {
           position: relative;
         }
-        ha-md-list-item.discovered {
-          height: 72px;
-        }
-        ha-md-list-item.config_entry::after {
+        ha-list-item-base.config_entry::after {
           position: absolute;
           top: 0;
           right: 0;
@@ -1539,6 +1666,7 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
         ha-config-entry-row {
           display: block;
           margin-bottom: 16px;
+          scroll-margin-top: var(--ha-space-10);
         }
         a {
           text-decoration: none;
@@ -1546,48 +1674,7 @@ class HaConfigIntegrationPage extends SubscribeMixin(LitElement) {
         .warning {
           color: var(--error-color);
         }
-        .state-failed-unload {
-          --state-message-color: var(--warning-color);
-          --text-on-state-color: var(--primary-text-color);
-        }
-        .state-failed::after {
-          background-color: var(--warning-color);
-        }
-        .state-not-loaded {
-          --state-message-color: var(--primary-text-color);
-        }
-        .state-setup {
-          --state-message-color: var(--secondary-text-color);
-        }
-        .message {
-          font-weight: var(--ha-font-weight-bold);
-          display: flex;
-          align-items: center;
-        }
-        .message ha-svg-icon {
-          color: var(--state-message-color);
-        }
-        .message div {
-          flex: 1;
-          margin-left: 8px;
-          margin-inline-start: 8px;
-          margin-inline-end: initial;
-          padding-top: 2px;
-          padding-right: 2px;
-          padding-inline-end: 2px;
-          padding-inline-start: initial;
-          overflow-wrap: break-word;
-          display: -webkit-box;
-          -webkit-box-orient: vertical;
-          -webkit-line-clamp: 7;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .state-disabled [slot="headline"],
-        .state-disabled [slot="supporting-text"] {
-          opacity: var(--md-list-item-disabled-opacity, 0.3);
-        }
-        ha-md-list {
+        ha-list-base {
           margin-top: 8px;
           margin-bottom: 8px;
         }
