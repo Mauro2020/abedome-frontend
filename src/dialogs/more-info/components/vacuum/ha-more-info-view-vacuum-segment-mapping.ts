@@ -1,7 +1,7 @@
-import { consume } from "@lit/context";
 import type { CSSResultGroup } from "lit";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators";
+import { consume } from "../../../../common/decorators/consume";
 import { fireEvent } from "../../../../common/dom/fire_event";
 import "../../../../components/ha-button";
 import "../../../../components/ha-spinner";
@@ -109,17 +109,13 @@ export class HaMoreInfoViewVacuumSegmentMapping extends LitElement {
         }
 
         <ha-vacuum-segment-area-mapper
-          .hass=${this.hass}
           .entityId=${this.params.entityId}
           .value=${this._areaMapping}
           @value-changed=${this._valueChanged}
         ></ha-vacuum-segment-area-mapper>
 
         <div class="footer">
-          <ha-button
-            @click=${this._save}
-            .disabled=${!this._dirtyState?.isDirty || this._submitting}
-          >
+          <ha-button @click=${this._save} .disabled=${this._submitting}>
             ${this.hass.localize("ui.common.save")}
           </ha-button>
         </div>

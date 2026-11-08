@@ -3,15 +3,14 @@ import { createCollection } from "home-assistant-js-websocket";
 import type { Store } from "home-assistant-js-websocket/dist/store";
 import memoizeOne from "memoize-one";
 import { computeDomain } from "../../common/entity/compute_domain";
-import { computeStateName } from "../../common/entity/compute_state_name";
 import { caseInsensitiveStringCompare } from "../../common/string/compare";
 import { debounce } from "../../common/util/debounce";
 import type { HomeAssistant } from "../../types";
 import type { LightColor } from "../light";
-import type { RegistryEntry } from "../registry";
+import type { NextNamePart, RegistryEntry } from "../registry";
 import type { Segment } from "../vacuum";
 
-type EntityCategory = "config" | "diagnostic";
+export type EntityCategory = "config" | "diagnostic";
 
 export interface EntityRegistryDisplayEntry {
   entity_id: string;
@@ -19,6 +18,7 @@ export interface EntityRegistryDisplayEntry {
   icon?: string;
   device_id?: string;
   area_id?: string;
+  next_name_part?: NextNamePart;
   labels: string[];
   hidden?: boolean;
   entity_category?: EntityCategory;
@@ -33,11 +33,12 @@ export interface EntityRegistryDisplayEntryResponse {
     ei: string;
     di?: string;
     ai?: string;
+    np?: NextNamePart;
     lb: string[];
     ec?: number;
     en?: string;
     ic?: string;
-    pl?: string;
+    pl: string;
     tk?: string;
     hb?: boolean;
     dp?: number;
@@ -56,9 +57,10 @@ export interface EntityRegistryEntry extends RegistryEntry {
   config_subentry_id: string | null;
   device_id: string | null;
   area_id: string | null;
+  next_name_part?: NextNamePart | null;
   labels: string[];
   disabled_by: "user" | "device" | "integration" | "config_entry" | null;
-  hidden_by: Exclude<EntityRegistryEntry["disabled_by"], "config_entry">;
+  hidden_by: "integration" | "user" | null;
   entity_category: EntityCategory | null;
   has_entity_name: boolean;
   original_name?: string;
@@ -69,7 +71,7 @@ export interface EntityRegistryEntry extends RegistryEntry {
 }
 
 export interface ExtEntityRegistryEntry extends EntityRegistryEntry {
-  capabilities: Record<string, unknown>;
+  capabilities: Record<string, unknown> | null;
   original_icon?: string;
   device_class?: string;
   original_device_class?: string;
@@ -96,10 +98,17 @@ export interface ValveEntityOptions {
   favorite_positions?: number[];
 }
 
-export type FavoriteOption =
-  "favorite_colors" | "favorite_positions" | "favorite_tilt_positions";
+export interface TimerEntityOptions {
+  presets?: number[];
+}
 
-export type FavoritesDomain = "light" | "cover" | "valve";
+export type FavoriteOption =
+  | "favorite_colors"
+  | "favorite_positions"
+  | "favorite_tilt_positions"
+  | "presets";
+
+export type FavoritesDomain = "light" | "cover" | "valve" | "timer";
 
 export type FavoriteOptionValue = LightColor[] | number[];
 
@@ -107,6 +116,7 @@ export const DOMAINS_WITH_FAVORITES: FavoritesDomain[] = [
   "light",
   "cover",
   "valve",
+  "timer",
 ];
 
 export const isFavoritesDomain = (domain: string): domain is FavoritesDomain =>
@@ -173,6 +183,7 @@ export interface EntityRegistryOptions {
   light?: LightEntityOptions;
   cover?: CoverEntityOptions;
   valve?: ValveEntityOptions;
+  timer?: TimerEntityOptions;
   vacuum?: VacuumEntityOptions;
   device_tracker?: DeviceTrackerEntityOptions;
   switch_as_x?: SwitchAsXEntityOptions;
@@ -187,7 +198,7 @@ export interface EntityRegistryEntryUpdateParams {
   device_class?: string | null;
   area_id?: string | null;
   disabled_by?: string | null;
-  hidden_by: string | null;
+  hidden_by?: string | null;
   new_entity_id?: string;
   options_domain?: string;
   options?:
@@ -200,6 +211,7 @@ export interface EntityRegistryEntryUpdateParams {
     | LightEntityOptions
     | CoverEntityOptions
     | ValveEntityOptions
+    | TimerEntityOptions
     | VacuumEntityOptions
     | DeviceTrackerEntityOptions;
   aliases?: (string | null)[];
@@ -246,14 +258,11 @@ export const computeEntityRegistryName = (
   hass: HomeAssistant,
   entry: EntityRegistryEntry
 ): string | null => {
-  if (entry.name) {
-    return entry.name;
-  }
   const state = hass.states[entry.entity_id];
   if (state) {
-    return computeStateName(state);
+    return hass.formatEntityName(state);
   }
-  return entry.original_name ? entry.original_name : entry.entity_id;
+  return entry.name || entry.original_name || entry.entity_id;
 };
 
 export const getExtendedEntityRegistryEntry = (
@@ -268,7 +277,7 @@ export const getExtendedEntityRegistryEntry = (
 export const getExtendedEntityRegistryEntries = (
   hass: HomeAssistant,
   entityIds: string[]
-): Promise<Record<string, ExtEntityRegistryEntry>> =>
+): Promise<Record<string, ExtEntityRegistryEntry | null>> =>
   hass.callWS({
     type: "config/entity_registry/get_entries",
     entity_ids: entityIds,

@@ -7,13 +7,13 @@ import { isIPAddress } from "../../../common/string/is_ip_address";
 import "../../../components/ha-alert";
 import "../../../components/ha-button";
 import "../../../components/ha-card";
-import "../../../components/ha-md-list-item";
 import "../../../components/ha-switch";
 import type { HaSwitch } from "../../../components/ha-switch";
 import type { HaInput } from "../../../components/input/ha-input";
 import "../../../components/input/ha-input-copy";
 import type { HaInputCopy } from "../../../components/input/ha-input-copy";
 import { formatAbedomeProductText } from "../../../data/abedome";
+import "../../../components/item/ha-row-item";
 import type { CloudStatus } from "../../../data/cloud";
 import { fetchCloudStatus } from "../../../data/cloud";
 import { saveCoreConfig } from "../../../data/core";
@@ -166,7 +166,7 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
           ${
             hasCloud
               ? html`
-                  <ha-md-list-item>
+                  <ha-row-item>
                     <span slot="headline"
                       >${this.hass.localize(
                         "ui.panel.config.url.external_use_ha_cloud"
@@ -178,7 +178,7 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
                       .checked=${this._cloudChecked}
                       @change=${this._toggleCloud}
                     ></ha-switch>
-                  </ha-md-list-item>
+                  </ha-row-item>
                 `
               : nothing
           }
@@ -244,7 +244,7 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
           <h4>
             ${this.hass.localize("ui.panel.config.url.internal_url_label")}
           </h4>
-          <ha-md-list-item>
+          <ha-row-item>
             <span slot="headline"
               >${this.hass.localize(
                 "ui.panel.config.url.internal_url_automatic"
@@ -261,7 +261,7 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
               .checked=${!this._showCustomInternalUrl}
               @change=${this._toggleInternalAutomatic}
             ></ha-switch>
-          </ha-md-list-item>
+          </ha-row-item>
 
           <div class="url-container">
             <ha-input-copy
@@ -327,7 +327,7 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
     super.firstUpdated(changedProps);
 
     if (isComponentLoaded(this.hass.config, "cloud")) {
-      fetchCloudStatus(this.hass).then((cloudStatus) => {
+      fetchCloudStatus(this.hass.callWS).then((cloudStatus) => {
         this._cloudStatus = cloudStatus;
         this._showCustomExternalUrl = !(
           this._cloudStatus.logged_in && !this.hass.config.external_url
@@ -348,18 +348,19 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
   }
 
   private _toggleCloud(ev: HASSDomCurrentTargetEvent<HaSwitch>) {
-    this._cloudChecked = (ev.currentTarget as HaSwitch).checked;
+    this._cloudChecked = ev.currentTarget.checked;
     this._showCustomExternalUrl = !this._cloudChecked;
   }
 
   private _toggleInternalAutomatic(ev: HASSDomCurrentTargetEvent<HaSwitch>) {
-    this._showCustomInternalUrl = !(ev.currentTarget as HaSwitch).checked;
+    this._showCustomInternalUrl = !ev.currentTarget.checked;
   }
 
-  private _handleChange(ev: InputEvent) {
-    const target = ev.currentTarget as HaInputCopy;
+  private _handleChange(
+    ev: InputEvent & HASSDomCurrentTargetEvent<HaInputCopy>
+  ) {
     const input = ev.composedPath()[0] as HaInput;
-    this[`_${target.dataset.name}`] = input.value || "";
+    this[`_${ev.currentTarget.dataset.name}`] = input.value || "";
   }
 
   private async _save() {
@@ -450,12 +451,10 @@ class ConfigUrlForm extends SubscribeMixin(LitElement) {
       flex: 1;
     }
 
-    ha-md-list-item {
-      --md-list-item-top-space: 0;
-      --md-list-item-bottom-space: 0;
-      --md-list-item-leading-space: 0;
-      --md-list-item-trailing-space: 0;
-      --md-list-item-two-line-container-height: 48px;
+    ha-row-item {
+      --ha-row-item-padding-block: 0;
+      --ha-row-item-padding-inline: 0;
+      --ha-row-item-min-height: 48px;
     }
   `;
 }

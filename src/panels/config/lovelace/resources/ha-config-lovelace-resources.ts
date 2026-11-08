@@ -3,12 +3,12 @@ import type { CSSResultGroup, PropertyValues, TemplateResult } from "lit";
 import { css, html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import memoize from "memoize-one";
+import { DataTableSettingsController } from "../../../../common/controllers/data-table-settings-controller";
 import { stringCompare } from "../../../../common/string/compare";
 import type { LocalizeFunc } from "../../../../common/translations/localize";
 import type {
   DataTableColumnContainer,
   RowClickedEvent,
-  SortingChangedEvent,
 } from "../../../../components/data-table/ha-data-table";
 import "../../../../components/ha-card";
 import "../../../../components/ha-button";
@@ -51,23 +51,14 @@ export class HaConfigLovelaceResources extends LitElement {
 
   @state() private _resources: LovelaceResource[] = [];
 
+  @state() private _loaded = false;
+
   @state() private _lovelaceInfo?: LovelaceInfo;
 
-  @state()
-  @storage({
-    storage: "sessionStorage",
-    key: "lovelace-resources-table-search",
-    state: true,
-    subscribe: false,
-  })
-  private _filter = "";
-
-  @storage({
-    key: "lovelace-resources-table-sort",
-    state: false,
-    subscribe: false,
-  })
-  private _activeSorting?: SortingChangedEvent;
+  private _tableSettings = new DataTableSettingsController(this, {
+    search: "lovelace-resources-table-search",
+    sorting: "lovelace-resources-table-sort",
+  });
 
   @storage({
     key: "lovelace-resources-table-column-order",
@@ -134,7 +125,7 @@ export class HaConfigLovelaceResources extends LitElement {
   );
 
   protected render(): TemplateResult {
-    if (!this.hass || this._resources === undefined) {
+    if (!this.hass || !this._loaded) {
       return html` <hass-loading-screen></hass-loading-screen> `;
     }
 
@@ -175,19 +166,21 @@ export class HaConfigLovelaceResources extends LitElement {
         .hass=${this.hass}
         .narrow=${this.narrow}
         .route=${this.route}
+        back-path="/config/lovelace/dashboards"
         .tabs=${lovelaceResourcesTabs}
         .columns=${this._columns(this.hass.language, this.hass.localize)}
         .data=${this._resources}
         .noDataText=${this.hass.localize(
           "ui.panel.config.lovelace.resources.picker.no_resources"
         )}
-        .initialSorting=${this._activeSorting}
+        .initialSorting=${this._tableSettings.sorting}
         .columnOrder=${this._activeColumnOrder}
         .hiddenColumns=${this._activeHiddenColumns}
         @columns-changed=${this._handleColumnsChanged}
-        @sorting-changed=${this._handleSortingChanged}
-        .filter=${this._filter}
-        @search-changed=${this._handleSearchChange}
+        @sorting-changed=${this._tableSettings.sortingChanged}
+        .filter=${this._tableSettings.search}
+        @search-changed=${this._tableSettings.searchChanged}
+        sync-url
         @row-click=${this._editResource}
         has-fab
         clickable
@@ -228,6 +221,7 @@ export class HaConfigLovelaceResources extends LitElement {
     ]);
     this._resources = resources;
     this._lovelaceInfo = lovelaceInfo;
+    this._loaded = true;
   }
 
   private _editResource(ev: CustomEvent) {
@@ -324,14 +318,6 @@ export class HaConfigLovelaceResources extends LitElement {
       return false;
     }
   };
-
-  private _handleSortingChanged(ev: CustomEvent) {
-    this._activeSorting = ev.detail;
-  }
-
-  private _handleSearchChange(ev: CustomEvent) {
-    this._filter = ev.detail.value;
-  }
 
   private _handleColumnsChanged(ev: CustomEvent) {
     this._activeColumnOrder = ev.detail.columnOrder;

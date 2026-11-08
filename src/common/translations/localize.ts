@@ -14,7 +14,6 @@ export type LocalizeKeys =
   | `ui.card.weather.attributes.${string}`
   | `ui.card.weather.cardinal_direction.${string}`
   | `ui.card.lawn_mower.actions.${string}`
-  | `ui.common.${string}`
   | `ui.components.calendar.event.rrule.${string}`
   | `ui.components.selectors.file.${string}`
   | `ui.dialogs.entity_registry.editor.${string}`
@@ -25,6 +24,7 @@ export type LocalizeKeys =
   | `ui.dialogs.unsupported.reasons.${string}`
   | `ui.panel.config.${string}.${"caption" | "description"}`
   | `ui.panel.config.dashboard.${string}`
+  | `ui.panel.config.mqtt.${string}`
   | `ui.panel.config.storage.segments.${string}`
   | `ui.panel.config.zha.${string}`
   | `ui.panel.config.zwave_js.${string}`

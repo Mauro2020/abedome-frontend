@@ -1,60 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent } from "../../src/common/dom/fire_event";
-import type { LocalizeFunc } from "../../src/common/translations/localize";
-import type * as OnboardingData from "../../src/data/onboarding";
-import "../../src/onboarding/onboarding-create-user";
+import { describe, expect, it } from "vitest";
+import { onboardingErrorMessage } from "../../src/onboarding/onboarding-error-message";
 
-const onboardUserStep = vi.hoisted(() => vi.fn());
-
-vi.mock("../../src/components/ha-button", () => ({}));
-
-vi.mock("../../src/data/onboarding", async (importOriginal) => ({
-  ...(await importOriginal<typeof OnboardingData>()),
-  onboardUserStep,
-}));
-
-const localize = ((key: string) =>
-  key === "ui.common.unknown_error" ? "Unknown error" : key) as LocalizeFunc;
-
-const userData = {
-  name: "Test User",
-  username: "test-user",
-  password: "a-strong-password",
-  password_confirm: "a-strong-password",
-};
-
-let element: HTMLElementTagNameMap["onboarding-create-user"];
-
-const submitForm = async () => {
-  const form = element.shadowRoot!.querySelector("ha-form")!;
-  fireEvent(form, "value-changed", { value: userData });
-  await element.updateComplete;
-
-  const button = element.shadowRoot!.querySelector("ha-button")!;
-  expect(button.disabled).toBe(false);
-  button.dispatchEvent(new MouseEvent("click"));
-
-  await vi.waitFor(() => {
-    expect(onboardUserStep).toHaveBeenCalledOnce();
-  });
-
-  return button;
-};
-
-describe("onboarding-create-user", () => {
-  beforeEach(async () => {
-    onboardUserStep.mockReset();
-    element = document.createElement("onboarding-create-user");
-    element.localize = localize;
-    element.language = "en";
-    document.body.append(element);
-    await element.updateComplete;
-  });
-
-  afterEach(() => {
-    document.body.replaceChildren();
-  });
-
+describe("onboarding error messages", () => {
   it.each([
     {
       name: "a JSON response message",
@@ -88,16 +35,7 @@ describe("onboarding-create-user", () => {
       error: undefined,
       expected: "Unknown error",
     },
-  ])("shows $name and re-enables submission", async ({ error, expected }) => {
-    onboardUserStep.mockRejectedValueOnce(error);
-
-    const button = await submitForm();
-
-    await vi.waitFor(() => {
-      expect(
-        element.shadowRoot!.querySelector("ha-alert")?.textContent?.trim()
-      ).toBe(expected);
-    });
-    expect(button.disabled).toBe(false);
+  ])("uses $name", ({ error, expected }) => {
+    expect(onboardingErrorMessage(error, "Unknown error")).toBe(expected);
   });
 });

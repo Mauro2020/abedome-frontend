@@ -1,10 +1,10 @@
 import type { TemplateResult } from "lit";
-import { LitElement, html } from "lit";
+import { css, LitElement, html } from "lit";
 import { customElement, property } from "lit/decorators";
 
 @customElement("abedome-logo-svg")
 export class AbedomeLogoSvg extends LitElement {
-  @property() public title = "ABEDOME";
+  @property({ attribute: "logo-title" }) public logoTitle = "ABEDOME";
 
   protected render(): TemplateResult {
     return html`
@@ -12,7 +12,7 @@ export class AbedomeLogoSvg extends LitElement {
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 1024 1024"
         role="img"
-        aria-label=${this.title}
+        aria-label=${this.logoTitle}
       >
         <rect width="1024" height="1024" rx="180" fill="#0B0B0A"></rect>
         <path
@@ -26,6 +26,24 @@ export class AbedomeLogoSvg extends LitElement {
       </svg>
     `;
   }
+
+  static styles = css`
+    :host {
+      display: var(--ha-icon-display, inline-flex);
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      vertical-align: middle;
+      width: var(--mdc-icon-size, 24px);
+      height: var(--mdc-icon-size, 24px);
+    }
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+  `;
 }
 
 declare global {

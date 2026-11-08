@@ -1,4 +1,4 @@
-import { consume, type ContextType } from "@lit/context";
+import type { ContextType } from "@lit/context";
 import {
   mdiAccessPointNetwork,
   mdiCodeJson,
@@ -10,11 +10,12 @@ import { css, html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import { cache } from "lit/directives/cache";
 import memoizeOne from "memoize-one";
-import { goBack, navigate } from "../../../../../common/navigate";
+import { consume } from "../../../../../common/decorators/consume";
+import { navigate } from "../../../../../common/navigate";
 import "../../../../../components/ha-spinner";
 import { narrowViewportContext } from "../../../../../data/context";
 import type { ZHADevice } from "../../../../../data/zha";
-import { fetchZHADevice } from "../../../../../data/zha";
+import { fetchZHADevice, ZHADeviceType } from "../../../../../data/zha";
 import "../../../../../layouts/hass-error-screen";
 import "../../../../../layouts/hass-subpage";
 import "../../../../../layouts/hass-tabs-subpage";
@@ -60,6 +61,13 @@ class ZHADevicePage extends LitElement {
 
   private _deviceRefreshInterval?: number;
 
+  public connectedCallback(): void {
+    super.connectedCallback();
+    if (this._device) {
+      this._startDeviceRefreshInterval();
+    }
+  }
+
   public disconnectedCallback(): void {
     super.disconnectedCallback();
     this._clearDeviceRefreshInterval();
@@ -102,7 +110,7 @@ class ZHADevicePage extends LitElement {
           .hass=${this.hass}
           .narrow=${this._narrow}
           .header=${header}
-          .backCallback=${this._goBack}
+          .backPath=${this._backPath}
         >
           <div class="loading">
             <ha-spinner size="large"></ha-spinner>
@@ -130,7 +138,7 @@ class ZHADevicePage extends LitElement {
         .hass=${this.hass}
         .route=${this.route}
         .tabs=${tabNavigation}
-        .backCallback=${this._goBack}
+        .backPath=${this._backPath}
       >
         <div class="container">
           <zha-device-summary-card
@@ -190,7 +198,9 @@ class ZHADevicePage extends LitElement {
       if (!tabs.includes(this._currTab)) {
         this._currTab = tabs[0];
       }
-      this._startDeviceRefreshInterval();
+      if (this.isConnected) {
+        this._startDeviceRefreshInterval();
+      }
     } catch (_err: any) {
       if (this.ieee === ieee) {
         this._error = this.hass.localize(
@@ -253,20 +263,23 @@ class ZHADevicePage extends LitElement {
     return ["clusters", "bindings", "signature", "neighbors"].includes(tab);
   }
 
-  private _goBack = (): void => {
-    goBack(
-      this._device
-        ? `/config/devices/device/${this._device.device_reg_id}`
-        : "/config/zha/dashboard"
-    );
-  };
+  private get _backPath(): string {
+    return this._device
+      ? `/config/devices/device/${this._device.device_reg_id}`
+      : "/config/zha/dashboard";
+  }
 
   private _getTabs = memoizeOne((device: ZHADevice | undefined) => {
+    if (device?.device_type === ZHADeviceType.GreenPower) {
+      return ["signature"] as ZHADevicePageTab[];
+    }
+
     const tabs: ZHADevicePageTab[] = ["clusters", "bindings", "signature"];
 
     if (
       device &&
-      (device.device_type === "Router" || device.device_type === "Coordinator")
+      (device.device_type === ZHADeviceType.Router ||
+        device.device_type === ZHADeviceType.Coordinator)
     ) {
       tabs.push("neighbors");
     }

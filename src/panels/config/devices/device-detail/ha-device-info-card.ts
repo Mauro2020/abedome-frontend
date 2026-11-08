@@ -1,8 +1,8 @@
-import { consume } from "@lit/context";
 import type { CSSResultGroup, TemplateResult } from "lit";
 import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import memoizeOne from "memoize-one";
+import { consume } from "../../../../common/decorators/consume";
 import { isComponentLoaded } from "../../../../common/config/is_component_loaded";
 import { computeDeviceNameDisplay } from "../../../../common/entity/compute_device_name";
 import { stringCompare } from "../../../../common/string/compare";
@@ -62,13 +62,9 @@ export class HaDeviceCard extends LitElement {
     return html`
       <ha-card
         outlined
-        .header=${this.hass.localize("ui.panel.config.devices.device_info", {
-          type: this.hass.localize(
-            `ui.panel.config.devices.type.${
-              this.device.entry_type || "device"
-            }_heading`
-          ),
-        })}
+        .header=${this.hass.localize(
+          `ui.panel.config.devices.${this.device.entry_type || "device"}_info_heading`
+        )}
       >
         <div class="card-content">
           ${
@@ -89,6 +85,27 @@ export class HaDeviceCard extends LitElement {
                       "ui.panel.config.integrations.config_entry.manuf",
                       { manufacturer: this.device.manufacturer }
                     )}
+                  </div>
+                `
+              : ""
+          }
+          ${
+            this.device.parent_device_id
+              ? html`
+                  <div class="extra-info">
+                    ${this.hass.localize(
+                      "ui.panel.config.integrations.config_entry.part_of"
+                    )}
+                    <span class="hub"
+                      ><a
+                        href="/config/devices/device/${
+                          this.device.parent_device_id
+                        }"
+                        >${this._computeDeviceNameDisplay(
+                          this.device.parent_device_id
+                        )}</a
+                      ></span
+                    >
                   </div>
                 `
               : ""
@@ -225,7 +242,7 @@ export class HaDeviceCard extends LitElement {
   private _computeDeviceNameDisplay(deviceId: string) {
     const device = this.hass.devices[deviceId];
     return device
-      ? computeDeviceNameDisplay(device, this.hass.localize, this.hass.states)
+      ? computeDeviceNameDisplay(device, this.hass.localize)
       : `<${this.hass.localize(
           "ui.panel.config.integrations.config_entry.unknown_via_device"
         )}>`;

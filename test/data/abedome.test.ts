@@ -116,7 +116,9 @@ describe("ABEDOME product labels", () => {
     } as unknown as HassEntities;
 
     expect(
-      filterUpdateEntities(entities).map((entity) => entity.attributes.title)
+      filterUpdateEntities(entities, (entity) => entity.entity_id).map(
+        (entity) => entity.attributes.title
+      )
     ).toEqual([
       ABEDOME_CORE_TITLE,
       ABEDOME_OS_TITLE,

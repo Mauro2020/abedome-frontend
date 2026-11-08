@@ -11,12 +11,14 @@ import { css, html, LitElement, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import memoizeOne from "memoize-one";
 import { isComponentLoaded } from "../../../../common/config/is_component_loaded";
+import { consumeLocalize } from "../../../../common/decorators/consume-context-entry";
 import { fireEvent } from "../../../../common/dom/fire_event";
 import { capitalizeFirstLetter } from "../../../../common/string/capitalize-first-letter";
 import type { LocalizeFunc } from "../../../../common/translations/localize";
 import "../../../../components/ha-checkbox";
 import type { HaCheckbox } from "../../../../components/ha-checkbox";
 import type { BackupData } from "../../../../data/backup";
+import { ABEDOME_PRODUCT_NAME } from "../../../../data/abedome";
 import { fetchHassioAddonsInfo } from "../../../../data/hassio/addon";
 import { mdiAbedome } from "../../../../resources/abedome-logo-svg";
 import type { HomeAssistant } from "../../../../types";
@@ -27,7 +29,7 @@ import "./ha-backup-formfield-label";
 interface CheckBoxItem {
   label: string;
   id: string;
-  version?: string;
+  version?: string | null;
 }
 
 const ITEM_ICONS = {
@@ -51,8 +53,6 @@ export class HaBackupDataPicker extends LitElement {
 
   @property({ attribute: false }) public value?: BackupData;
 
-  @property({ attribute: false }) public localize?: LocalizeFunc;
-
   @property({ type: Array, attribute: "required-items" })
   public requiredItems: string[] = [];
 
@@ -60,6 +60,10 @@ export class HaBackupDataPicker extends LitElement {
     "page-onboarding.restore" | "config.backup" = "config.backup";
 
   @property({ attribute: false }) public addonsDisabled = false;
+
+  @state()
+  @consumeLocalize()
+  private _localize!: LocalizeFunc;
 
   @state() public _addonIcons: Record<string, boolean> = {};
 
@@ -105,21 +109,21 @@ export class HaBackupDataPicker extends LitElement {
   );
 
   private _localizeFolder(folder: string): string {
-    const localize = this.localize || this.hass!.localize;
-
     switch (folder) {
       case "media":
-        return localize(
+        return this._localize(
           `ui.panel.${this.translationKeyPanel}.data_picker.media`
         );
       case "share":
-        return localize(
+        return this._localize(
           `ui.panel.${this.translationKeyPanel}.data_picker.share_folder`
         );
       case "ssl":
-        return localize(`ui.panel.${this.translationKeyPanel}.data_picker.ssl`);
+        return this._localize(
+          `ui.panel.${this.translationKeyPanel}.data_picker.ssl`
+        );
       case "addons/local":
-        return localize(
+        return this._localize(
           `ui.panel.${this.translationKeyPanel}.data_picker.local_apps`
         );
     }
@@ -225,13 +229,14 @@ export class HaBackupDataPicker extends LitElement {
   }
 
   protected render() {
-    const localize = this.localize || this.hass!.localize;
-
-    const homeAssistantItems = this._homeAssistantItems(this.data, localize);
+    const homeAssistantItems = this._homeAssistantItems(
+      this.data,
+      this._localize
+    );
 
     const addonsItems = this._addonsItems(
       this.data,
-      localize,
+      this._localize,
       this._addonIcons
     );
 
@@ -257,7 +262,7 @@ export class HaBackupDataPicker extends LitElement {
                   ?disabled=${this.requiredItems.length > 0}
                 >
                   <ha-backup-formfield-label
-                    label="Home Assistant"
+                    .label=${ABEDOME_PRODUCT_NAME}
                     .iconPath=${mdiAbedome}
                   >
                   </ha-backup-formfield-label>
@@ -300,7 +305,7 @@ export class HaBackupDataPicker extends LitElement {
                   .disabled=${this.addonsDisabled}
                 >
                   <ha-backup-formfield-label
-                    .label=${localize(
+                    .label=${this._localize(
                       `ui.panel.${this.translationKeyPanel}.data_picker.apps`
                     )}
                     .iconPath=${mdiPuzzle}

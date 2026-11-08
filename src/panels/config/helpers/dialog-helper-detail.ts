@@ -5,6 +5,7 @@ import { customElement, property, query, state } from "lit/decorators";
 import memoizeOne from "memoize-one";
 import { isComponentLoaded } from "../../../common/config/is_component_loaded";
 import { dynamicElement } from "../../../common/dom/dynamic-element-directive";
+import type { HASSDomTargetEvent } from "../../../common/dom/fire_event";
 import { fireEvent } from "../../../common/dom/fire_event";
 import { stopPropagation } from "../../../common/dom/stop_propagation";
 import { stringCompare } from "../../../common/string/compare";
@@ -39,7 +40,7 @@ import { showAlertDialog } from "../../../dialogs/generic/show-dialog-box";
 import { haStyleDialog, haStyleScrollbar } from "../../../resources/styles";
 import type { HomeAssistant } from "../../../types";
 import { brandsUrl } from "../../../util/brands-url";
-import type { Helper, HelperDomain } from "./const";
+import type { Helper, HelperDomain, HelperFormItem } from "./const";
 import { isHelperDomain } from "./const";
 import type { ShowDialogHelperDetailParams } from "./show-dialog-helper-detail";
 
@@ -103,11 +104,11 @@ const HELPERS: HelperCreators = {
 
 @customElement("dialog-helper-detail")
 export class DialogHelperDetail extends DirtyStateProviderMixin<
-  Helper | undefined
+  HelperFormItem | undefined
 >()(LitElement) {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  @state() private _item?: Helper;
+  @state() private _item?: HelperFormItem;
 
   @state() private _open = false;
 
@@ -137,15 +138,20 @@ export class DialogHelperDetail extends DirtyStateProviderMixin<
   public async showDialog(params: ShowDialogHelperDetailParams): Promise<void> {
     this._params = params;
     this._domain = params.domain;
-    this._item = undefined;
+    this._item = params.item;
     if (this._domain && this._domain in HELPERS) {
-      await HELPERS[this._domain].import();
-      this._initDirtyTracking({ type: "deep" }, undefined);
+      this._loading = true;
+      try {
+        await HELPERS[this._domain].import();
+        this._initDirtyTracking({ type: "deep" }, undefined);
+      } finally {
+        this._loading = false;
+      }
     }
     this._open = true;
     await this.updateComplete;
     this.hass.loadFragmentTranslation("config");
-    const flows = await getConfigFlowHandlers(this.hass, ["helper"]);
+    const flows = await getConfigFlowHandlers(this.hass, "helper");
     await this.hass.loadBackendTranslation("title", flows, true);
     // Ensure the titles are loaded before we render the flows.
     this._helperFlows = flows;
@@ -184,7 +190,7 @@ export class DialogHelperDetail extends DirtyStateProviderMixin<
     let content: TemplateResult;
     let footer: TemplateResult | typeof nothing = nothing;
 
-    if (this._domain) {
+    if (this._domain && !this._loading) {
       content = html`
         <div class="form" @value-changed=${this._valueChanged}>
           ${this._error ? html`<div class="error">${this._error}</div>` : ""}
@@ -368,9 +374,8 @@ export class DialogHelperDetail extends DirtyStateProviderMixin<
     }
   );
 
-  private async _filterChanged(e: InputEvent) {
-    const target = e.target as HaInputSearch;
-    this._filter = target.value;
+  private async _filterChanged(e: HASSDomTargetEvent<HaInputSearch>) {
+    this._filter = e.target.value;
   }
 
   private _valueChanged(ev: CustomEvent): void {

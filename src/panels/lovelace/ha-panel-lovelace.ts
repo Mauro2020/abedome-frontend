@@ -4,7 +4,7 @@ import type { PropertyValues, TemplateResult } from "lit";
 import { html, LitElement } from "lit";
 import { customElement, property, state } from "lit/decorators";
 import memoizeOne from "memoize-one";
-import { navigate } from "../../common/navigate";
+import { navigate, replaceCurrentUrl } from "../../common/navigate";
 import type { LocalizeFunc } from "../../common/translations/localize";
 import { constructUrlCurrentPath } from "../../common/url/construct-url";
 import {
@@ -15,6 +15,7 @@ import { debounce } from "../../common/util/debounce";
 import "../../components/ha-button";
 import { domainToName } from "../../data/integration";
 import { subscribeLovelaceUpdates } from "../../data/lovelace";
+import { normalizeLovelaceConfig } from "../../data/lovelace/config/normalize";
 import type {
   LovelaceConfig,
   LovelaceRawConfig,
@@ -31,7 +32,6 @@ import "../../layouts/hass-loading-screen";
 import type { ShowToastParams } from "../../managers/notification-manager";
 import type { HomeAssistant, PanelInfo, Route } from "../../types";
 import { showToast } from "../../util/toast";
-import { checkLovelaceConfig } from "./common/check-lovelace-config";
 import { loadLovelaceResources } from "./common/load-resources";
 import { showSaveDialog } from "./editor/show-save-config-dialog";
 import "./hui-root";
@@ -48,6 +48,8 @@ import { fetchDashboards } from "../../data/lovelace/dashboard";
 interface LovelacePanelConfig {
   mode: "yaml" | "storage";
 }
+
+const EXTERNALLY_UPDATED_TOAST_ID = "lovelace-externally-updated";
 
 let editorLoaded = false;
 let resourcesLoaded = false;
@@ -265,6 +267,7 @@ export class LovelacePanel extends LitElement {
       return;
     }
     showToast(this, {
+      id: EXTERNALLY_UPDATED_TOAST_ID,
       message: this.hass!.localize(
         "ui.panel.lovelace.externally_updated_toast.message"
       ),
@@ -316,7 +319,7 @@ export class LovelacePanel extends LitElement {
       // Refreshing a YAML config can trigger an update event. We will ignore
       // all update events while fetching the config and for 2 seconds after the config is back.
       // We ignore because we already have the latest config.
-      if (this.lovelace && this.lovelace.mode === "yaml") {
+      if (confMode === "yaml") {
         this._ignoreNextUpdateEvent = true;
       }
 
@@ -364,7 +367,7 @@ export class LovelacePanel extends LitElement {
     } finally {
       this._loading = false;
       // Ignore updates for another 2 seconds.
-      if (this.lovelace && this.lovelace.mode === "yaml") {
+      if (confMode === "yaml") {
         setTimeout(() => {
           this._ignoreNextUpdateEvent = false;
         }, 2000);
@@ -376,9 +379,9 @@ export class LovelacePanel extends LitElement {
     this._setLovelaceConfig(conf, rawConf, confMode);
   }
 
-  private _checkLovelaceConfig(config: LovelaceRawConfig) {
-    const checkedConfig = checkLovelaceConfig(config);
-    return deepFreeze(checkedConfig);
+  private _normalizeLovelaceConfig(config: LovelaceRawConfig) {
+    const normalizedConfig = normalizeLovelaceConfig(config);
+    return deepFreeze(normalizedConfig);
   }
 
   private _setLovelaceConfig(
@@ -386,7 +389,7 @@ export class LovelacePanel extends LitElement {
     rawConfig: LovelaceRawConfig,
     mode: Lovelace["mode"]
   ) {
-    config = this._checkLovelaceConfig(config);
+    config = this._normalizeLovelaceConfig(config);
     const urlPath = this.urlPath;
     this.lovelace = {
       config,
@@ -433,11 +436,13 @@ export class LovelacePanel extends LitElement {
           rawConfig: previousRawConfig,
           mode: previousMode,
         } = this.lovelace!;
-        newConfig = this._checkLovelaceConfig(newConfig);
+        newConfig = this._normalizeLovelaceConfig(newConfig);
         let conf: LovelaceConfig;
         // If strategy defined, apply it here.
         if (isStrategyDashboard(newConfig)) {
-          conf = await generateLovelaceDashboardStrategy(newConfig, this.hass!);
+          conf = this._normalizeLovelaceConfig(
+            await generateLovelaceDashboardStrategy(newConfig, this.hass!)
+          );
         } else {
           conf = newConfig;
         }
@@ -509,9 +514,7 @@ export class LovelacePanel extends LitElement {
     };
 
     if ("editMode" in props) {
-      window.history.replaceState(
-        null,
-        "",
+      replaceCurrentUrl(
         constructUrlCurrentPath(
           props.editMode
             ? addSearchParam({ edit: "1" })

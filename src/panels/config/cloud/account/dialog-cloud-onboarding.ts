@@ -473,7 +473,7 @@ export class DialogCloudOnboarding extends LitElement {
   }
 
   private async _refreshStatus() {
-    const status = await fetchCloudStatus(this.hass);
+    const status = await fetchCloudStatus(this.hass.callWS);
     if (status.logged_in) {
       this._cloudStatus = status;
     }
@@ -687,6 +687,11 @@ export class DialogCloudOnboarding extends LitElement {
             var(--primary-color) 15%,
             transparent
           );
+        }
+        .option-icon.cloud abedome-logo-svg {
+          display: block;
+          width: 28px;
+          height: 28px;
         }
         .option-icon.alexa {
           color: var(--cyan-color);

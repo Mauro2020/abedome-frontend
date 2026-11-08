@@ -2,6 +2,7 @@ import { LitElement, html } from "lit";
 import { customElement, property } from "lit/decorators";
 import { fireEvent } from "../../../../../../common/dom/fire_event";
 import "../../../../../../components/ha-icon-next";
+import { ABEDOME_PRODUCT_NAME } from "../../../../../../data/abedome";
 import type { HomeAssistant } from "../../../../../../types";
 import { sharedStyles } from "./matter-add-device-shared-styles";
 
@@ -39,7 +40,7 @@ class MatterAddDeviceGoogleHome extends LitElement {
                     `ui.dialogs.matter-add-device.google_home.link_apps_services`
                   )}</b
                 >`,
-                home_assistant: html`<b>Home Assistant</b>`,
+                home_assistant: html`<b>${ABEDOME_PRODUCT_NAME}</b>`,
               }
             )}
             <span

@@ -65,11 +65,13 @@ class HuiInputNumberEntityRow extends LitElement implements LovelaceRow {
 
     if (!stateObj) {
       return html`
-        <hui-warning .hass=${this.hass}>
-          ${createEntityNotFoundWarning(this.hass, this._config.entity)}
+        <hui-warning>
+          ${createEntityNotFoundWarning(this.hass.localize, this.hass.config)}
         </hui-warning>
       `;
     }
+
+    const name = this.hass.formatEntityName(stateObj, this._config.name);
 
     return html`
       <hui-generic-entity-row .hass=${this.hass} .config=${this._config}>
@@ -79,6 +81,7 @@ class HuiInputNumberEntityRow extends LitElement implements LovelaceRow {
                 <div class="flex">
                   <ha-slider
                     labeled
+                    .accessibleLabel=${name}
                     .disabled=${stateObj.state === UNAVAILABLE}
                     .step=${Number(stateObj.attributes.step)}
                     .min=${Number(stateObj.attributes.min)}
@@ -92,8 +95,9 @@ class HuiInputNumberEntityRow extends LitElement implements LovelaceRow {
                 </div>
               `
             : html`
-                <div class="flex state">
+                <div class="flex box">
                   <ha-input
+                    .accessibleLabel=${name}
                     .disabled=${stateObj.state === UNAVAILABLE}
                     pattern="[0-9]+([\\.][0-9]+)?"
                     .step=${Number(stateObj.attributes.step)}
@@ -127,6 +131,10 @@ class HuiInputNumberEntityRow extends LitElement implements LovelaceRow {
     .state {
       min-width: 45px;
       text-align: end;
+    }
+    .box {
+      flex-grow: 0;
+      min-width: 45px;
     }
     ha-input {
       width: 100%;
@@ -176,7 +184,7 @@ class HuiInputNumberEntityRow extends LitElement implements LovelaceRow {
 
     if ((ev.target as HTMLInputElement).value !== stateObj.state) {
       setValue(
-        this.hass!,
+        this.hass!.callService,
         stateObj.entity_id,
         (ev.target as HTMLInputElement).value
       );

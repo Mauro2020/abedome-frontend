@@ -28,7 +28,7 @@ import { showRestartDialog } from "../../../dialogs/restart/show-dialog-restart"
 import "../../../layouts/hass-subpage";
 import { haStyle } from "../../../resources/styles";
 import type { HomeAssistant } from "../../../types";
-import "../components/ha-config-navigation-list";
+import "../../../components/ha-config-navigation-list";
 import "../ha-config-section";
 import { configSections } from "../config-sections";
 
@@ -145,7 +145,6 @@ class HaConfigSystemNavigation extends LitElement {
         >
           <ha-card outlined>
             <ha-config-navigation-list
-              .hass=${this.hass}
               .narrow=${this.narrow}
               .pages=${pages}
               has-secondary
@@ -194,9 +193,9 @@ class HaConfigSystemNavigation extends LitElement {
       const hardwareInfo: HardwareInfo = await this.hass.callWS({
         type: "hardware/info",
       });
-      this._boardName = hardwareInfo?.hardware.find(
-        (hw) => hw.board !== null
-      )?.name;
+      this._boardName =
+        hardwareInfo?.hardware.find((hw) => hw.board !== null)?.name ??
+        undefined;
     } else if (isHassioLoaded) {
       const osData: HassioHassOSInfo = await fetchHassioHassOsInfo(this.hass);
       if (osData.board) {
@@ -216,7 +215,7 @@ class HaConfigSystemNavigation extends LitElement {
 
   private async _fetchNetworkStatus() {
     if (isComponentLoaded(this.hass.config, "cloud")) {
-      const cloudStatus = await fetchCloudStatus(this.hass);
+      const cloudStatus = await fetchCloudStatus(this.hass.callWS);
       if (cloudStatus.logged_in) {
         this._externalAccess = true;
         return;

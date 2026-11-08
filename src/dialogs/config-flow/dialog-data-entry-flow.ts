@@ -12,12 +12,14 @@ import "../../components/ha-button";
 import "../../components/ha-dialog";
 import "../../components/ha-dialog-footer";
 import "../../components/ha-icon-button";
+import type { ConfigEntry } from "../../data/config_entries";
 import type { DataEntryFlowStep } from "../../data/data_entry_flow";
 import {
   subscribeDataEntryFlowProgress,
   subscribeDataEntryFlowProgressed,
 } from "../../data/data_entry_flow";
 import type { DeviceRegistryEntry } from "../../data/device/device_registry";
+import type { RepairsIssue } from "../../data/repairs";
 import { DirtyStateProviderMixin } from "../../mixins/dirty-state-provider-mixin";
 import { haStyleDialog } from "../../resources/styles";
 import type { HomeAssistant } from "../../types";
@@ -30,6 +32,7 @@ import type {
 } from "./show-dialog-data-entry-flow";
 import { showOptionsFlowDialog } from "./show-dialog-options-flow";
 import { showSubConfigFlowDialog } from "./show-dialog-sub-config-flow";
+import { showRepairsFlowDialog } from "../repairs-flow/show-dialog-repair-flow";
 import "./step-flow-abort";
 import "./step-flow-create-entry";
 import "./step-flow-external";
@@ -218,7 +221,9 @@ class DataEntryFlowDialog extends DirtyStateProviderMixin<
       this._params.dialogClosedCallback({
         flowFinished,
         entryId:
-          "result" in this._step ? this._step.result?.entry_id : undefined,
+          "result" in this._step
+            ? (this._step.result as ConfigEntry)?.entry_id
+            : undefined,
       });
     }
 
@@ -279,7 +284,7 @@ class DataEntryFlowDialog extends DirtyStateProviderMixin<
         const devicesLength = this._devices(
           this._params.flowConfig.showDevices,
           Object.values(this.hass.devices),
-          this._step.result?.entry_id,
+          (this._step.result as ConfigEntry)?.entry_id,
           this._params.carryOverDevices
         ).length;
         return this.hass.localize(
@@ -485,7 +490,8 @@ class DataEntryFlowDialog extends DirtyStateProviderMixin<
                                       .devices=${this._devices(
                                         this._params.flowConfig.showDevices,
                                         Object.values(this.hass.devices),
-                                        this._step.result?.entry_id,
+                                        (this._step.result as ConfigEntry)
+                                          ?.entry_id,
                                         this._params.carryOverDevices
                                       )}
                                     ></step-flow-create-entry>
@@ -497,6 +503,12 @@ class DataEntryFlowDialog extends DirtyStateProviderMixin<
         ${this._renderFooter()}
       </ha-dialog>
     `;
+  }
+
+  // A flow cannot be resumed after a page reload, so block reloads for as long
+  // as the dialog is open. This freezes and hides the frontend update prompt.
+  protected override get _blocksReload(): boolean {
+    return this.isDirtyState || this._params !== undefined;
   }
 
   private get _preventScrimClose(): boolean {
@@ -575,7 +587,7 @@ class DataEntryFlowDialog extends DirtyStateProviderMixin<
         const devices = this._devices(
           this._params!.flowConfig.showDevices,
           Object.values(this.hass.devices),
-          this._step.result?.entry_id,
+          (this._step.result as ConfigEntry)?.entry_id,
           this._params!.carryOverDevices
         );
 
@@ -681,21 +693,23 @@ class DataEntryFlowDialog extends DirtyStateProviderMixin<
           dialogClosedCallback: this._params!.dialogClosedCallback,
         });
       } else if (_step.next_flow[0] === "options_flow") {
-        if (_step.type === "create_entry") {
-          showOptionsFlowDialog(this, _step.result!, {
-            continueFlowId: _step.next_flow[1],
-            navigateToResult: this._params!.navigateToResult,
-            dialogClosedCallback: this._params!.dialogClosedCallback,
-          });
-        }
+        showOptionsFlowDialog(this, _step.result!, {
+          continueFlowId: _step.next_flow[1],
+          navigateToResult: this._params!.navigateToResult,
+          dialogClosedCallback: this._params!.dialogClosedCallback,
+        });
       } else if (_step.next_flow[0] === "config_subentries_flow") {
-        if (_step.type === "create_entry") {
-          showSubConfigFlowDialog(this, _step.result!, "", {
-            continueFlowId: _step.next_flow[1],
-            navigateToResult: this._params!.navigateToResult,
-            dialogClosedCallback: this._params!.dialogClosedCallback,
-          });
-        }
+        showSubConfigFlowDialog(this, _step.result!, "", {
+          continueFlowId: _step.next_flow[1],
+          navigateToResult: this._params!.navigateToResult,
+          dialogClosedCallback: this._params!.dialogClosedCallback,
+        });
+      } else if (_step.next_flow[0] === "repair_flow") {
+        showRepairsFlowDialog(this, _step.result as unknown as RepairsIssue, {
+          continueFlowId: _step.next_flow[1],
+          navigateToResult: this._params!.navigateToResult,
+          dialogClosedCallback: this._params!.dialogClosedCallback,
+        });
       } else {
         this.closeDialog();
         showAlertDialog(this, {
@@ -713,9 +727,18 @@ class DataEntryFlowDialog extends DirtyStateProviderMixin<
       return;
     }
     this._progress = undefined;
+    let catchingUp = true;
+    // Fetching re-runs the current step, which external steps can treat as the user returning,
+    // and only progress tasks can finish before the subscription is in place
+    let fetchPending = this._step?.type === "progress";
     const unsubs = [
       subscribeDataEntryFlowProgressed(this.hass.connection, (ev) => {
         if (ev.data.flow_id !== this._step?.flow_id) {
+          return;
+        }
+        if (catchingUp) {
+          // Two concurrent fetches can both advance the flow, so let the catch-up below fetch again
+          fetchPending = true;
           return;
         }
         this._processStep(
@@ -728,9 +751,54 @@ class DataEntryFlowDialog extends DirtyStateProviderMixin<
         this._progress = Math.ceil(ev.data.progress * 100);
       }),
     ];
-    this._unsubDataEntryFlowProgress = async () => {
+    const unsubscribe = async () => {
       (await Promise.all(unsubs)).map((unsub) => unsub());
     };
+    this._unsubDataEntryFlowProgress = unsubscribe;
+
+    // The backend fires the progressed event even if we have not subscribed yet,
+    // so fetch the flow once in case its progress task already finished
+    try {
+      await Promise.all(unsubs);
+      while (fetchPending) {
+        fetchPending = false;
+        const step = this._step;
+        if (
+          this._unsubDataEntryFlowProgress !== unsubscribe ||
+          !step ||
+          (step.type !== "external" && step.type !== "progress")
+        ) {
+          break;
+        }
+        // A failed fetch only ends the loop if no progressed event arrived while it was in flight
+        // eslint-disable-next-line no-await-in-loop
+        const current = await this._params!.flowConfig.fetchFlow(
+          this.hass,
+          step.flow_id
+        ).catch(() => undefined);
+        if (
+          current &&
+          this._step === step &&
+          !(
+            current.type === step.type &&
+            "step_id" in current &&
+            current.step_id === step.step_id &&
+            // Progress steps can move on to another task without changing step_id
+            (current.type !== "progress" ||
+              (step.type === "progress" &&
+                current.progress_action === step.progress_action))
+          )
+        ) {
+          this._progress = undefined;
+          // eslint-disable-next-line no-await-in-loop
+          await this._processStep(current);
+        }
+      }
+    } catch (_err) {
+      // Keep waiting for the progressed event
+    } finally {
+      catchingUp = false;
+    }
   }
 
   private _focusFormStep = async (): Promise<void> => {

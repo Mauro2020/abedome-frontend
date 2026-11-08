@@ -1,14 +1,20 @@
 import {
   mdiCrosshairsGps,
+  mdiHome,
   mdiMagnify,
   mdiMapMarker,
   mdiMapSearchOutline,
 } from "@mdi/js";
-import type { CSSResultGroup, TemplateResult, PropertyValues } from "lit";
+import type { CSSResultGroup, PropertyValues, TemplateResult } from "lit";
 import { LitElement, css, html, nothing } from "lit";
 import { customElement, property, query, state } from "lit/decorators";
 import memoizeOne from "memoize-one";
+import { consumeLocalize } from "../common/decorators/consume-context-entry";
 import { fireEvent } from "../common/dom/fire_event";
+import {
+  HOME_ZONE_ENTITY_ID,
+  zoneColor,
+} from "../common/map/entity-map-colors";
 import type { LocalizeFunc } from "../common/translations/localize";
 import "../components/ha-alert";
 import "../components/ha-button";
@@ -38,7 +44,9 @@ const LOCATION_MARKER_ID = "location";
 class OnboardingLocation extends LitElement {
   @property({ attribute: false }) public hass!: HomeAssistant;
 
-  @property({ attribute: false }) public onboardingLocalize!: LocalizeFunc;
+  @state()
+  @consumeLocalize()
+  private _localize!: LocalizeFunc;
 
   @state() private _working = false;
 
@@ -67,7 +75,7 @@ class OnboardingLocation extends LitElement {
   @query("ha-input") private _input?: HTMLElement;
 
   protected render(): TemplateResult {
-    const addressAttribution = this.onboardingLocalize(
+    const addressAttribution = this._localize(
       "ui.panel.page-onboarding.core-config.location_address",
       {
         openstreetmap: html`<a
@@ -80,7 +88,7 @@ class OnboardingLocation extends LitElement {
           href="https://wiki.osmfoundation.org/wiki/Privacy_Policy"
           target="_blank"
           rel="noopener noreferrer"
-          >${this.onboardingLocalize(
+          >${this._localize(
             "ui.panel.page-onboarding.core-config.osm_privacy_policy"
           )}</a
         >`,
@@ -89,7 +97,7 @@ class OnboardingLocation extends LitElement {
 
     return html`
       <h1>
-        ${this.onboardingLocalize(
+        ${this._localize(
           "ui.panel.page-onboarding.core-config.location_header"
         )}
       </h1>
@@ -100,14 +108,12 @@ class OnboardingLocation extends LitElement {
       }
 
       <p>
-        ${this.onboardingLocalize(
-          "ui.panel.page-onboarding.core-config.intro_location"
-        )}
+        ${this._localize("ui.panel.page-onboarding.core-config.intro_location")}
       </p>
 
       <div class="location-search">
         <ha-input
-          label=${this.onboardingLocalize(
+          label=${this._localize(
             "ui.panel.page-onboarding.core-config.address_label"
           )}
           .disabled=${this._working}
@@ -122,7 +128,7 @@ class OnboardingLocation extends LitElement {
                     @click=${this._handleButtonClick}
                     slot="end"
                     .disabled=${this._working}
-                    .label=${this.onboardingLocalize(
+                    .label=${this._localize(
                       this._search
                         ? "ui.common.search"
                         : "ui.panel.page-onboarding.core-config.button_detect"
@@ -187,7 +193,8 @@ class OnboardingLocation extends LitElement {
         .locations=${this._markerLocations(
           this._location,
           this._places,
-          this._highlightedMarker
+          this._highlightedMarker,
+          zoneColor(HOME_ZONE_ENTITY_ID, false, [], getComputedStyle(this))
         )}
         zoom="14"
         .themeMode=${darkMql.matches ? "dark" : "light"}
@@ -200,9 +207,7 @@ class OnboardingLocation extends LitElement {
 
       <div class="footer">
         <ha-button @click=${this._save} .disabled=${this._working}>
-          ${this.onboardingLocalize(
-            "ui.panel.page-onboarding.core-config.finish"
-          )}
+          ${this._localize("ui.panel.page-onboarding.core-config.finish")}
         </ha-button>
       </div>
     `;
@@ -239,14 +244,25 @@ class OnboardingLocation extends LitElement {
 
   private _markerLocations = memoizeOne(
     (
-      location?: [number, number],
-      places?: OpenStreetMapPlace[] | null,
-      highlightedMarker?: number
+      location: [number, number] | undefined,
+      places: OpenStreetMapPlace[] | null | undefined,
+      highlightedMarker: number | undefined,
+      homeColor: string
     ): MarkerLocation[] => {
+      // Drawn like the home zone on a map
+      const home: Pick<
+        MarkerLocation,
+        "iconPath" | "zone_marker" | "radius_color"
+      > = {
+        iconPath: mdiHome,
+        zone_marker: true,
+        radius_color: homeColor,
+      };
       if (!places) {
         return [
           {
             id: LOCATION_MARKER_ID,
+            ...home,
             latitude: (location || AMSTERDAM)[0],
             longitude: (location || AMSTERDAM)[1],
             location_editable: true,
@@ -256,8 +272,9 @@ class OnboardingLocation extends LitElement {
       return places?.length
         ? places.map((place) => ({
             id: String(place.place_id),
-            iconPath:
-              place.place_id === highlightedMarker ? undefined : mdiMapMarker,
+            ...(place.place_id === highlightedMarker
+              ? home
+              : { iconPath: mdiMapMarker }),
             latitude:
               location && place.place_id === highlightedMarker
                 ? location[0]
@@ -267,6 +284,7 @@ class OnboardingLocation extends LitElement {
                 ? location[1]
                 : Number(place.lon),
             location_editable: place.place_id === highlightedMarker,
+            clickable: true,
           }))
         : [];
     }
@@ -407,10 +425,10 @@ class OnboardingLocation extends LitElement {
 
   private async _whoAmI() {
     const confirm = await showConfirmationDialog(this, {
-      title: this.onboardingLocalize(
+      title: this._localize(
         "ui.panel.page-onboarding.core-config.title_location_detect"
       ),
-      text: this.onboardingLocalize(
+      text: this._localize(
         "ui.panel.page-onboarding.core-config.intro_location_detect"
       ),
     });
@@ -504,27 +522,12 @@ class OnboardingLocation extends LitElement {
           margin: 0;
           padding: 4px 16px 12px 16px;
           color: var(--mdc-text-field-label-ink-color, rgba(0, 0, 0, 0.6));
-          font-family: var(
-            --mdc-typography-caption-font-family,
-            var(--mdc-typography-font-family, var(--ha-font-family-body))
-          );
-          font-size: var(
-            --mdc-typography-caption-font-size,
-            var(--ha-font-size-xs)
-          );
-          font-weight: var(
-            --mdc-typography-caption-font-weight,
-            var(--ha-font-weight-normal)
-          );
-          letter-spacing: var(
-            --mdc-typography-caption-letter-spacing,
-            0.0333333333em
-          );
-          text-decoration: var(
-            --mdc-typography-caption-text-decoration,
-            inherit
-          );
-          text-transform: var(--mdc-typography-caption-text-transform, inherit);
+          font-family: var(--ha-font-family-body);
+          font-size: var(--ha-font-size-xs);
+          font-weight: var(--ha-font-weight-normal);
+          letter-spacing: 0.0333333333em;
+          text-decoration: inherit;
+          text-transform: inherit;
         }
         .attribution a {
           color: inherit;
